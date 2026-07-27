@@ -36,9 +36,21 @@ export default function LoginScreen({ onSignIn }) {
 
   return (
     <div className="login-screen">
-      {/* Dot matrix background */}
+      {/* Dot matrix canvas background (Layer 0) */}
       <div className="login-dots" aria-hidden="true" />
 
+      {/* Atmospheric 3D ASCII Angel Sculpture Screensaver (Layer 1) 
+          RAGE-PROOF FULL-SCREEN SHIELD: Container fills 100% of viewport while Three.js anchors 
+          the massive 3.4x sculpture to the bottom left without a single clipped pixel! */}
+      <div className="login-3d-background-saver" aria-hidden="true">
+        <AsciiSculpture
+          modelPath="/models/angel_sculpture.glb"
+          autoRotateSpeed={0.18} // Serene museum speed
+          scaleMultiplier={3.4} // Enormous colossal stature, zero clipping
+        />
+      </div>
+
+      {/* Primary Content Card (Layer 10 - Fully formatted to the far right edge of the monitor!) */}
       <div className="login-content animate-fade-in">
         {/* ASCII Logo */}
         <pre className="login-logo">{LOGO_ART}</pre>
@@ -50,7 +62,7 @@ export default function LoginScreen({ onSignIn }) {
           No clutter. No anxiety. Just your email.
         </p>
 
-        {/* Sign In */}
+        {/* Sign In CTA */}
         <div className="login-cta">
           <Button
             variant="primary"
@@ -66,42 +78,11 @@ export default function LoginScreen({ onSignIn }) {
           <p className="login-error font-mono">{error}</p>
         )}
 
-        {/* Features */}
-        <div className="login-features font-mono">
-          <div className="login-feature">
-            <span className="login-feature-icon">◉</span>
-            <span>AI-powered stream sorting</span>
-          </div>
-          <div className="login-feature">
-            <span className="login-feature-icon">◉</span>
-            <span>Smart priority detection</span>
-          </div>
-          <div className="login-feature">
-            <span className="login-feature-icon">◉</span>
-            <span>Beautiful compose with tone assist</span>
-          </div>
-        </div>
-
-        {/* Fork credit */}
+        {/* Hackathon fork credit - cleanly right-aligned */}
         <div className="login-credit font-mono">
           ┌─ forked from the chaos of legacy webmail ─┐<br/>
           │&nbsp;&nbsp;built for Overclock Delhi '26&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br/>
           └────────────────────────────────────────────┘
-        </div>
-      </div>
-
-      {/* Bottom Right 3D ASCII Sculpture Engine */}
-      <div className="login-3d-corner animate-fade-in" title="Interactive 3D WebGL ASCII Sculpture - drag to spin!">
-        <AsciiSculpture
-          modelPath="/models/angel_sculpture.glb"
-          width={320}
-          height={320}
-          interactive={true}
-          showControls={false}
-          autoRotateSpeed={0.006}
-        />
-        <div className="corner-caption font-mono">
-          <span>┌── angel.glb [3D ASCII] ──┐</span>
         </div>
       </div>
     </div>

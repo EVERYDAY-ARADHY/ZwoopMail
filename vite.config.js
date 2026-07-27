@@ -32,5 +32,8 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
+    host: true,         // Allows listening on network interfaces for web tunneling
+    cors: true,         // Allows cross-origin requests through tunnel
+    allowedHosts: true, // Prevents Vite from blocking Cloudflare / ngrok tunnel hostnames
   },
 })

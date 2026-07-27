@@ -2,31 +2,53 @@
   min-height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end; /* Strictly drives content over to the far right flank! */
   background-color: var(--color-bg);
   position: relative;
   overflow: hidden;
+  isolation: isolate;
+  padding: var(--space-6) var(--space-4);
 }
 
-/* Dot matrix background effect */
+/* Dot matrix background (Layer 0) */
 .login-dots {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, var(--color-border-strong) 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: 0.4;
+  background-image: radial-gradient(circle, var(--color-text-tertiary) 0.8px, transparent 0.8px);
+  background-size: 22px 22px;
+  opacity: 0.16;
+  z-index: 0;
   pointer-events: none;
 }
 
+/* Atmospheric 3D ASCII Sculpture Screensaver on Bottom Left (Layer 1) 
+   REVOLUTIONARY FIX: Made the container 100% full-screen (inset: 0) so there are ZERO 
+   artificial CSS clipping boxes anywhere on your monitor! Three.js now handles placing 
+   the sculpture safely on the bottom-left without ever slicing off a single character! */
+.login-3d-background-saver {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.95;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Primary Content Card (Layer 10 - Pushed cleanly to the far right edge of the monitor!) */
 .login-content {
   position: relative;
-  z-index: 1;
+  z-index: 10;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: var(--space-8);
+  align-items: flex-end; /* Flush right alignment */
+  text-align: right;
+  padding: var(--space-8) 0;
   max-width: 860px;
+  margin-left: auto;
+  margin-right: clamp(12px, 4vw, 65px);
 }
 
 /* ASCII Logo */
@@ -38,7 +60,8 @@
   margin-bottom: var(--space-8);
   user-select: none;
   white-space: pre;
-  text-align: left;
+  text-align: right;
+  text-shadow: 0 0 10px rgba(252, 80, 0, 0.15);
 }
 
 /* Title */
@@ -49,60 +72,57 @@
   line-height: var(--leading-tight);
   color: var(--color-text);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-  margin-bottom: var(--space-4);
+  letter-spacing: var(--tracking-tighter);
+  margin-bottom: var(--space-3);
+  text-align: right;
 }
 
+/* Subtitle */
 .login-subtitle {
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
   font-size: var(--text-lg);
-  font-weight: var(--weight-medium);
   color: var(--color-text-secondary);
-  line-height: var(--leading-normal);
-  margin-bottom: var(--space-10);
-  max-width: 400px;
+  max-width: 480px;
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-8);
+  text-align: right;
 }
 
+/* CTA container */
 .login-cta {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-8);
+  z-index: 12;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .login-error {
-  font-size: var(--text-xs);
   color: #e05252;
-  margin-top: var(--space-4);
-  padding: var(--space-2) var(--space-4);
-  background: rgba(224, 82, 82, 0.1);
-  border-radius: var(--radius-md);
-}
-
-/* Features list */
-.login-features {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-bottom: var(--space-10);
-}
-
-.login-feature {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   font-size: var(--text-sm);
-  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+  background-color: color-mix(in srgb, #e05252 10%, transparent);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-base);
 }
 
-.login-feature-icon {
-  color: var(--color-ember);
-  font-size: 8px;
-}
-
-/* Credit box */
+/* Hackathon Credit box */
 .login-credit {
   font-size: 11px;
   line-height: 1.6;
   color: var(--color-text-tertiary);
-  text-align: left;
+  text-align: right;
+  opacity: 0.85;
+}
+
+@media (max-width: 960px) {
+  .login-screen {
+    justify-content: center;
+  }
+  .login-content {
+    margin-right: 0;
+    align-items: center;
+    text-align: center;
+  }
 }
 
 @media (max-width: 600px) {
@@ -117,47 +137,8 @@
   .login-subtitle {
     font-size: var(--text-base);
   }
-}
 
-/* Bottom Right Rotating 3D ASCII Corner */
-.login-3d-corner {
-  position: absolute;
-  bottom: var(--space-6);
-  right: var(--space-6);
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: auto;
-  transition: transform var(--transition-base), opacity var(--transition-base);
-  cursor: grab;
-  user-select: none;
-}
-
-.login-3d-corner:hover {
-  transform: scale(1.04);
-}
-
-.corner-caption {
-  font-size: 11px;
-  color: var(--color-ember);
-  letter-spacing: 0.05em;
-  margin-top: -12px;
-  opacity: 0.85;
-  background-color: var(--color-bg);
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  border: 1px dashed var(--color-border-strong);
-}
-
-/* Responsive adjustment so it never covers the login form on narrow laptop windows */
-@media (max-width: 1250px) {
-  .login-3d-corner {
-    position: relative;
-    bottom: auto;
-    right: auto;
-    margin: var(--space-4) auto var(--space-10);
-    z-index: 10;
+  .login-3d-background-saver {
+    opacity: 0.65;
   }
 }
-

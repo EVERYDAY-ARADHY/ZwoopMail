@@ -1,0 +1,12 @@
+.text-block {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--text-base);
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.char {
+  will-change: transform, color;
+  display: inline-block;
+  transition: color var(--transition-fast);
+}

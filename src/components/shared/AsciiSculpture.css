@@ -1,129 +1,40 @@
-.ascii-sculpture-wrapper {
+/* Atmospheric 3D ASCII Screensaver wrapper */
+.ascii-sculpture-screensaver {
   width: 100%;
-  border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-obsidian);
-  overflow: hidden;
+  height: 100%;
   position: relative;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-
-/* Clean corner variant when controls are hidden */
-.ascii-sculpture-wrapper.clean-corner {
-  border: none;
-  background-color: transparent !important;
-  box-shadow: none;
   overflow: visible;
-}
-
-.ascii-sculpture-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-2) var(--space-4);
-  background-color: #151415;
-  border-bottom: 1.5px solid rgba(240, 237, 232, 0.15);
-  color: var(--color-ember);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  user-select: none;
-}
-
-.sculpture-dot {
-  margin-right: 6px;
-  animation: pulse 1.5s infinite;
-}
-
-.sculpture-tag {
-  color: rgba(240, 237, 232, 0.45);
-  font-size: 10px;
-}
-
-.ascii-sculpture-container {
-  width: 100%;
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  background-color: transparent !important;
   user-select: none;
+  pointer-events: none;
 }
 
-/* Enforce Caldera molten orange (#fc5000) on all ASCII output characters */
+.three-canvas-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Enforce Caldera molten orange (#fc5000) on all ASCII output letters without any background box */
 .three-canvas-root,
 .three-canvas-root * {
   color: var(--color-ember) !important;
   background-color: transparent !important;
-  text-shadow: 0 0 6px rgba(252, 80, 0, 0.35); /* Subtle ember glow! */
+  text-shadow: 0 0 12px rgba(252, 80, 0, 0.4); /* Glowing cyber-ember aura! */
 }
 
-.ascii-sculpture-loading,
-.ascii-sculpture-error {
+.ascii-sculpture-loading {
   position: absolute;
   color: var(--color-ember);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.05em;
   background: rgba(7, 6, 7, 0.85);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-6);
   border-radius: var(--radius-pill);
   border: 1px solid var(--color-border-strong);
   white-space: nowrap;
-}
-
-.ascii-sculpture-error {
-  color: #e05252;
-}
-
-/* Interactive Control Deck */
-.ascii-controls-deck {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-around;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  background-color: #151415;
-  border-top: 1.5px solid rgba(240, 237, 232, 0.15);
-  color: #f0ede8;
-  font-size: 11px;
-}
-
-.control-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-}
-
-.control-item span {
-  color: rgba(240, 237, 232, 0.7);
-}
-
-.control-toggle {
-  background: transparent;
-  border: 1px solid rgba(240, 237, 232, 0.2);
-  border-radius: var(--radius-pill);
-  padding: 3px 10px;
-  color: rgba(240, 237, 232, 0.6);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.control-toggle.active {
-  border-color: var(--color-ember);
-  color: var(--color-ember);
-  background: color-mix(in srgb, var(--color-ember) 12%, transparent);
-}
-
-.control-toggle:hover {
-  border-color: var(--color-ember);
-}
-
-.control-item input[type="range"] {
-  accent-color: var(--color-ember);
-  cursor: pointer;
-  width: 90px;
 }

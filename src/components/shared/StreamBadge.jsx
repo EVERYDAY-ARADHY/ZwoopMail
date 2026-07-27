@@ -1,9 +1,9 @@
 const STREAM_CONFIG = {
-  people: { label: 'People', icon: '💬', color: 'var(--stream-people)' },
-  transactions: { label: 'Transactions', icon: '📦', color: 'var(--stream-transactions)' },
-  newsletters: { label: 'Newsletters', icon: '📰', color: 'var(--stream-newsletters)' },
-  notifications: { label: 'Notifications', icon: '🔔', color: 'var(--stream-notifications)' },
-  promotions: { label: 'Promotions', icon: '🏷️', color: 'var(--stream-promotions)' },
+  people: { label: 'People', icon: '●', color: 'var(--stream-people)' },
+  transactions: { label: 'Transactions', icon: '◆', color: 'var(--stream-transactions)' },
+  newsletters: { label: 'Newsletters', icon: '▤', color: 'var(--stream-newsletters)' },
+  notifications: { label: 'Notifications', icon: '✦', color: 'var(--stream-notifications)' },
+  promotions: { label: 'Promotions', icon: '▻', color: 'var(--stream-promotions)' },
 }
 
 export default function StreamBadge({ stream, count = null, compact = false }) {
@@ -27,7 +27,7 @@ export default function StreamBadge({ stream, count = null, compact = false }) {
       whiteSpace: 'nowrap',
       userSelect: 'none',
     }}>
-      <span>{config.icon}</span>
+      <span style={{ fontSize: compact ? '10px' : '11px' }}>{config.icon}</span>
       {!compact && <span>{config.label}</span>}
       {count !== null && count > 0 && (
         <span style={{
