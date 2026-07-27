@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Button from '../shared/Button'
+import AsciiSculpture from '../shared/AsciiSculpture'
 import './LoginScreen.css'
 
 const LOGO_ART = `
@@ -86,6 +87,21 @@ export default function LoginScreen({ onSignIn }) {
           ┌─ forked from the chaos of legacy webmail ─┐<br/>
           │&nbsp;&nbsp;built for Overclock Delhi '26&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br/>
           └────────────────────────────────────────────┘
+        </div>
+      </div>
+
+      {/* Bottom Right 3D ASCII Sculpture Engine */}
+      <div className="login-3d-corner animate-fade-in" title="Interactive 3D WebGL ASCII Sculpture - drag to spin!">
+        <AsciiSculpture
+          modelPath="/models/angel_sculpture.glb"
+          width={320}
+          height={320}
+          interactive={true}
+          showControls={false}
+          autoRotateSpeed={0.006}
+        />
+        <div className="corner-caption font-mono">
+          <span>┌── angel.glb [3D ASCII] ──┐</span>
         </div>
       </div>
     </div>
