@@ -11,7 +11,7 @@
 /* Clean corner variant when controls are hidden */
 .ascii-sculpture-wrapper.clean-corner {
   border: none;
-  background-color: transparent;
+  background-color: transparent !important;
   box-shadow: none;
   overflow: visible;
 }
@@ -46,8 +46,16 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background-color: transparent;
+  background-color: transparent !important;
   user-select: none;
+}
+
+/* Enforce Caldera molten orange (#fc5000) on all ASCII output characters */
+.three-canvas-root,
+.three-canvas-root * {
+  color: var(--color-ember) !important;
+  background-color: transparent !important;
+  text-shadow: 0 0 6px rgba(252, 80, 0, 0.35); /* Subtle ember glow! */
 }
 
 .ascii-sculpture-loading,

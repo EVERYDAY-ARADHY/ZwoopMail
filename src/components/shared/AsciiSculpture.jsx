@@ -11,9 +11,10 @@ export default function AsciiSculpture({
   height = 340,
   interactive = true,
   showControls = false,
-  autoRotateSpeed = 0.005, // Slow, captivating rotation
+  autoRotateSpeed = 0.005, // Slow, hypnotic rotation
 }) {
-  const containerRef = useRef(null)
+  // Dedicated DOM container for Three.js so React Virtual DOM never interferes
+  const canvasHolderRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
@@ -21,7 +22,6 @@ export default function AsciiSculpture({
   const [autoRotate, setAutoRotate] = useState(true)
   const [scale, setScale] = useState(2.0) // 200% scale from screenshot
   const [contrast, setContrast] = useState(2.5) // 2.5 contrast/brightness
-  const [colorMode, setColorMode] = useState('ember') // 'ember' (#fc5000) or 'mono' (#f0ede8)
 
   const sceneRef = useRef(null)
   const modelRef = useRef(null)
@@ -29,22 +29,21 @@ export default function AsciiSculpture({
   const effectRef = useRef(null)
 
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!canvasHolderRef.current) return
 
-    const widthPx = containerRef.current.clientWidth || width
-    const heightPx = containerRef.current.clientHeight || height
+    const widthPx = canvasHolderRef.current.clientWidth || width
+    const heightPx = canvasHolderRef.current.clientHeight || height
 
     // 1. Scene setup
     const scene = new THREE.Scene()
-    // Transparent background so it sits naturally over dot-matrix canvas
     sceneRef.current = scene
 
     // 2. Camera setup
     const camera = new THREE.PerspectiveCamera(45, widthPx / heightPx, 0.1, 1000)
     camera.position.set(0, 1.2, 4.5)
 
-    // 3. Lighting setup (Directional light with contrast/intensity from screenshot)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.25)
+    // 3. Lighting setup (Directional light with 2.5 intensity from screenshot)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3)
     scene.add(ambientLight)
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, contrast)
@@ -62,18 +61,22 @@ export default function AsciiSculpture({
     const effect = new AsciiEffect(renderer, ' .:-=+*#@', {
       invert: true,
       resolution: 0.25,
+      color: false, // Ensure monochrome so our #fc5000 ember CSS overrides purely!
     })
     effect.setSize(widthPx, heightPx)
-    effect.domElement.style.color = colorMode === 'ember' ? '#fc5000' : '#f0ede8'
+    effect.domElement.style.color = '#fc5000' // Caldera molten ember orange
     effect.domElement.style.backgroundColor = 'transparent'
-    effect.domElement.style.fontFamily = "'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace"
+    effect.domElement.style.fontFamily = "var(--font-mono), 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace"
     effect.domElement.style.lineHeight = '1'
+    effect.domElement.style.fontWeight = 'bold'
     effect.domElement.style.cursor = interactive ? 'grab' : 'default'
     effectRef.current = effect
 
-    // Attach to DOM
-    containerRef.current.innerHTML = ''
-    containerRef.current.appendChild(effect.domElement)
+    // Safely attach to isolated DOM node without disturbing React state overlays
+    while (canvasHolderRef.current.firstChild) {
+      canvasHolderRef.current.removeChild(canvasHolderRef.current.firstChild)
+    }
+    canvasHolderRef.current.appendChild(effect.domElement)
 
     // 6. OrbitControls for mouse interactions
     let controls = null
@@ -97,7 +100,7 @@ export default function AsciiSculpture({
         const box = new THREE.Box3().setFromObject(root)
         const center = box.getCenter(new THREE.Vector3())
         const size = box.getSize(new THREE.Vector3())
-        const maxDim = Math.max(size.x, size.y, size.z)
+        const maxDim = Math.max(size.x, size.y, size.z) || 1
         
         // Normalize size to ~1.4 units then multiply by scale (2.0)
         const normalizeScale = (1.4 / maxDim) * scale
@@ -110,7 +113,7 @@ export default function AsciiSculpture({
 
         // Enhance material reflections for vibrant ASCII character density
         root.traverse((child) => {
-          if (child.isMesh) {
+          if (child.isMesh && child.material) {
             child.material.roughness = 0.3
             child.material.metalness = 0.2
           }
@@ -145,9 +148,9 @@ export default function AsciiSculpture({
 
     // Handle Resize
     const handleResize = () => {
-      if (!containerRef.current) return
-      const newWidth = containerRef.current.clientWidth
-      const newHeight = containerRef.current.clientHeight
+      if (!canvasHolderRef.current) return
+      const newWidth = canvasHolderRef.current.clientWidth || width
+      const newHeight = canvasHolderRef.current.clientHeight || height
       camera.aspect = newWidth / newHeight
       camera.updateProjectionMatrix()
       renderer.setSize(newWidth, newHeight)
@@ -160,27 +163,11 @@ export default function AsciiSculpture({
       cancelAnimationFrame(animationFrameId)
       if (controls) controls.dispose()
       renderer.dispose()
+      if (canvasHolderRef.current && effect.domElement.parentNode === canvasHolderRef.current) {
+        canvasHolderRef.current.removeChild(effect.domElement)
+      }
     }
-  }, [modelPath, width, height])
-
-  // Reactive updates when UI controls are toggled
-  useEffect(() => {
-    if (lightRef.current) lightRef.current.intensity = contrast
-  }, [contrast])
-
-  useEffect(() => {
-    if (modelRef.current) {
-      const baseScale = 1.4 / 2.0
-      const newScale = baseScale * scale
-      modelRef.current.scale.set(newScale, newScale, newScale)
-    }
-  }, [scale])
-
-  useEffect(() => {
-    if (effectRef.current) {
-      effectRef.current.domElement.style.color = colorMode === 'ember' ? '#fc5000' : '#f0ede8'
-    }
-  }, [colorMode])
+  }, [modelPath, width, height, interactive, autoRotate, autoRotateSpeed, contrast, scale])
 
   return (
     <div className={`ascii-sculpture-wrapper ${!showControls ? 'clean-corner' : ''}`} style={{ width: `${width}px`, height: `${height}px` }}>
@@ -191,7 +178,10 @@ export default function AsciiSculpture({
         </div>
       )}
 
-      <div className="ascii-sculpture-container" ref={containerRef} style={{ width: `${width}px`, height: `${height}px` }}>
+      <div className="ascii-sculpture-container" style={{ width: `${width}px`, height: `${height}px` }}>
+        {/* Dedicated DOM node for Three.js AsciiEffect */}
+        <div className="three-canvas-root" ref={canvasHolderRef} style={{ width: '100%', height: '100%' }} />
+
         {loading && (
           <div className="ascii-sculpture-loading font-mono">
             <span>⠋ rendering 3D ASCII...</span>
