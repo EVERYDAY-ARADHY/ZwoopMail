@@ -1,0 +1,37 @@
+/* ============================================================================
+   APP LAYOUT
+   ============================================================================ */
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+}
+
+.app-main {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .app-main {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 1024px) {
+  .app-content {
+    flex-direction: column;
+  }
+}

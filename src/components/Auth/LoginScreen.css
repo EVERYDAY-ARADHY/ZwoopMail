@@ -1,0 +1,119 @@
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-bg);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Dot matrix background effect */
+.login-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--color-border-strong) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.login-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-8);
+  max-width: 600px;
+}
+
+/* ASCII Logo */
+.login-logo {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--color-ember);
+  margin-bottom: var(--space-8);
+  user-select: none;
+  white-space: pre;
+}
+
+/* Title */
+.login-title {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-tight);
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--space-4);
+}
+
+.login-subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
+  margin-bottom: var(--space-10);
+  max-width: 400px;
+}
+
+.login-cta {
+  margin-bottom: var(--space-6);
+}
+
+.login-error {
+  font-size: var(--text-xs);
+  color: #e05252;
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background: rgba(224, 82, 82, 0.1);
+  border-radius: var(--radius-md);
+}
+
+/* Features list */
+.login-features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-10);
+}
+
+.login-feature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.login-feature-icon {
+  color: var(--color-ember);
+  font-size: 8px;
+}
+
+/* Credit box */
+.login-credit {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-text-tertiary);
+  text-align: left;
+}
+
+@media (max-width: 600px) {
+  .login-logo {
+    font-size: 7px;
+  }
+
+  .login-title {
+    font-size: var(--text-2xl);
+  }
+
+  .login-subtitle {
+    font-size: var(--text-base);
+  }
+}

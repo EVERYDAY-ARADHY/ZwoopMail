@@ -1,0 +1,163 @@
+================================================================================
+ZWOOPMAIL — IMPLEMENTATION PLAN & BLUEPRINT
+================================================================================
+
+Theme: Overclock Delhi Hackathon — "Fork the System"
+Fork target: Yahoo Mail / Hotmail / Outlook Express -> Modern, calm, AI-powered email client
+Team Size: 2 Developers
+Timeline: 5 Days
+
+--------------------------------------------------------------------------------
+1. DESIGN DIRECTION: CALDERA x ASCII
+--------------------------------------------------------------------------------
+
+The design fuses two distinct visual languages:
+1. Caldera Palette: Warm volcanic tones (ember orange, limestone, pumice) providing
+   richness, emotion, and flat color-based elevation (zero drop shadows).
+2. ASCII / Dot-Matrix Aesthetic: Inspired by Hyperstudio — box-drawing borders 
+   (┌─┐│└─┘), monospace text metadata, ASCII art loaders/empty states, and dot-matrix
+   halftone textures.
+
+Color Tokens:
+- Ember Orange (--color-ember): #fc5000 (Primary actions, urgency, unread accents)
+- Plasma Violet (--color-plasma-violet): #524ae9 (AI features, smart suggestions)
+- Sulfur Yellow (--color-sulfur): #f5f28e (Tags, category badges)
+- Limestone (--color-limestone): #f7f6f2 (Card surfaces, email rows)
+- Pumice Gray (--color-pumice): #e2e2df (Main page canvas background)
+- Obsidian (--color-obsidian): #070607 (Primary text, structural headers)
+- Chalk White (--color-chalk): #ffffff (High-contrast text on dark sections)
+
+Typography:
+- Display / Headings: Anton or Bebas Neue (Google Fonts substitutes for PP Neue Corp)
+- Body / UI text: DM Sans (Medium 500 weight)
+- Monospace / Accents: JetBrains Mono or IBM Plex Mono (timestamps, metadata, ASCII art)
+
+Shapes & Radii:
+- Cards: 40px border-radius
+- Buttons & CTAs: 800px full-pill radius
+- Form Inputs: 100px radius
+- Elevation: Flat color contrast only. ABSOLUTELY NO DROP SHADOWS.
+
+
+--------------------------------------------------------------------------------
+2. TECHNICAL ARCHITECTURE & STACK
+--------------------------------------------------------------------------------
+
+- Framework: Vite + React (Fast dev server, component-based layout)
+- Styling: Vanilla CSS with custom properties (CSS variables matching Caldera tokens)
+- Email Protocol & Auth: Gmail API (OAuth2 via Google Cloud Console testing mode)
+- AI Engine: Groq API (Llama 3 inference) / Gemini API fallback
+- State Management: React Context + useReducer
+- Deployment: Vercel or Netlify
+
+
+--------------------------------------------------------------------------------
+3. PROJECT FILE STRUCTURE
+--------------------------------------------------------------------------------
+
+Overclock/
+├── index.html
+├── package.json
+├── vite.config.js
+├── public/
+│   └── favicon.svg
+└── src/
+    ├── main.jsx
+    ├── App.jsx
+    ├── index.css                   # Global tokens & typography
+    ├── api/
+    │   ├── gmail.js                # OAuth2 & Gmail API calls
+    │   └── ai.js                   # Groq / Gemini API helper
+    ├── context/
+    │   └── MailContext.jsx          # Email state, categories, active stream
+    ├── components/
+    │   ├── Layout/
+    │   │   ├── Sidebar.jsx          # Stream navigation & quick dashboard
+    │   │   └── TopBar.jsx           # Natural language search & user status
+    │   ├── EmailList/
+    │   │   ├── EmailList.jsx        # Stream view & filter tabs
+    │   │   ├── EmailItem.jsx        # Email row/card with ASCII accents
+    │   │   └── NeedsAttention.jsx   # Priority AI list box
+    │   ├── EmailView/
+    │   │   ├── EmailView.jsx        # Reading pane
+    │   │   └── ReaderMode.jsx       # Stripped plain-text view
+    │   ├── Compose/
+    │   │   ├── Compose.jsx          # Full-screen distraction-free modal
+    │   │   └── AIAssist.jsx         # Tone selector & autocomplete panel
+    │   ├── Auth/
+    │   │   └── LoginScreen.jsx      # Google OAuth login landing page
+    │   └── shared/
+    │       ├── AsciiArt.jsx         # ASCII art assets
+    │       ├── AsciiLoader.jsx      # Animated dot-matrix loader
+    │       ├── EmptyState.jsx       # Inbox Zero ASCII graphic
+    │       └── StreamBadge.jsx      # Category indicator chips
+    ├── hooks/
+    │   ├── useGmail.js
+    │   ├── useAI.js
+    │   └── useTheme.js
+    └── utils/
+        ├── categorize.js           # Client-side heuristic & AI stream classifier
+        ├── emailParser.js          # HTML sanitizer & plain-text extractor
+        └── mockData.js             # Fallback dataset for offline testing
+
+
+--------------------------------------------------------------------------------
+4. FEATURE SCOPE & PRIORITIZATION
+--------------------------------------------------------------------------------
+
+P0 — MUST-HAVE FOR CORE DEMO:
+[x] Google OAuth sign-in & live Gmail inbox fetching
+[x] Stream-based visual categorization (People, Transactions, Newsletters, Alerts, Promo)
+[x] Caldera color design tokens + ASCII border typography aesthetics
+[x] Reading pane with HTML render & Clean Reader Mode toggle
+[x] Full-screen Compose window with email delivery capability
+
+P1 — HIGH VALUE FOR JUDGING:
+[ ] "Needs Attention" priority section powered by AI urgency detection
+[ ] AI Compose Assist (Tone adjustments: Professional, Casual, Urgent)
+[ ] Natural language search parsing
+[ ] Theme Switcher (Caldera Warm Light vs. Midnight Dark)
+[ ] Mobile responsive layout
+
+P2 — POLISH & EXTRA CREDITS:
+[ ] Keyboard navigation shortcuts (J/K movement, C compose, E archive)
+[ ] Animated ASCII background canvas
+[ ] Gesture controls (swipe to archive/snooze)
+
+
+--------------------------------------------------------------------------------
+5. 5-DAY WORK SPLIT (2 DEVELOPERS)
+--------------------------------------------------------------------------------
+
+DAY 1: FOUNDATION & AUTH
+- Dev A: Set up Vite + React repo, CSS token architecture, main layout shell, ASCII component library.
+- Dev B: Google Cloud OAuth2 client setup, authentication flow, basic Gmail API integration (list & get messages).
+
+DAY 2: CORE INBOX & READING PANE
+- Dev A: Build Stream-based EmailList UI, EmailItem card layout, stream switching logic.
+- Dev B: Implement client-side email HTML parsing, Clean Reader Mode, connect live Gmail fetch to UI.
+
+DAY 3: AI & COMPOSE WORKFLOW
+- Dev A: Full-screen Compose modal UI, AI Assist side panel, NeedsAttention UI module.
+- Dev B: Integrate Groq/Gemini API for email categorization, urgency detection, and tone rewrite tools.
+
+DAY 4: POLISH, THEMING & RESPONSIVENESS
+- Dev A: Theme switching (Midnight/Warm), mobile responsiveness, micro-animations, empty state graphics.
+- Dev B: Natural language search parsing, error boundaries, fallback mock data pipeline.
+
+DAY 5: DEPLOYMENT & SUBMISSION ASSETS
+- Dev A: Capture high-res screenshots (5:4 banner), fine-tune visual styling, test UI on mobile viewports.
+- Dev B: Deploy to Vercel, prepare public GitHub repository, write README documentation, record demo walk-through video.
+
+
+--------------------------------------------------------------------------------
+6. VERIFICATION & SUCCESS CRITERIA
+--------------------------------------------------------------------------------
+
+1. Run local build check: `npm run build` (Ensures zero bundle breaks).
+2. Login test: Sign in using Google OAuth test account.
+3. Fetch test: Verify live emails load into correct streams without hitting API rate limits.
+4. AI feature test: Verify tone adjustment generated correctly via Groq.
+5. Delivery test: Send an email via ZwoopMail and confirm receipt in standard inbox.
+6. Deployment: App live on a Vercel/Netlify HTTPS link.
+================================================================================

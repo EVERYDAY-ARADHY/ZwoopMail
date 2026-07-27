@@ -1,0 +1,108 @@
+.email-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--transition-fast);
+  position: relative;
+}
+
+.email-item:hover {
+  background-color: var(--color-border);
+}
+
+.email-item.selected {
+  background-color: var(--color-ember-subtle);
+}
+
+/* Stream color bar on left */
+.email-item-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: transparent;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  transition: background-color var(--transition-fast);
+}
+
+.email-item.selected .email-item-indicator,
+.email-item.unread .email-item-indicator {
+  background-color: var(--item-stream-color);
+}
+
+/* Unread dot */
+.email-item-unread-dot {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 6px;
+  color: var(--color-ember);
+  line-height: 1;
+}
+
+/* Content */
+.email-item-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.email-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: 2px;
+}
+
+.email-item-sender {
+  font-weight: var(--weight-medium);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email-item.unread .email-item-sender {
+  font-weight: var(--weight-semibold);
+}
+
+.email-item-date {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.email-item-subject {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.email-item.unread .email-item-subject {
+  font-weight: var(--weight-semibold);
+}
+
+.email-item-snippet {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+}

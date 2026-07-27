@@ -1,0 +1,54 @@
+.email-list {
+  width: 380px;
+  min-width: 380px;
+  height: 100%;
+  border-right: 1.5px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--color-surface);
+}
+
+/* Header */
+.email-list-header {
+  padding: var(--space-5) var(--space-5);
+  border-bottom: 1.5px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.email-list-stream-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.email-list-stream-icon {
+  font-size: var(--text-xl);
+}
+
+.email-list-stream-name {
+  font-size: var(--text-xl);
+  color: var(--color-text);
+}
+
+.email-list-count {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+}
+
+/* Items */
+.email-list-items {
+  flex: 1;
+  overflow-y: auto;
+}
+
+@media (max-width: 1024px) {
+  .email-list {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+  }
+}

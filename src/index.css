@@ -1,0 +1,277 @@
+/* ============================================================================
+   ZWOOPMAIL — CALDERA × ASCII DESIGN SYSTEM
+   ============================================================================
+   Warm volcanic palette + dot-matrix/ASCII brutalist aesthetic.
+   Zero shadows. Flat color-based elevation. Pill-shaped controls.
+   ============================================================================ */
+
+/* --- CSS Reset --- */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* --- Caldera Design Tokens --- */
+:root {
+  /* Colors */
+  --color-ember: #fc5000;
+  --color-ember-hover: #e04800;
+  --color-ember-subtle: rgba(252, 80, 0, 0.12);
+  --color-plasma-violet: #524ae9;
+  --color-plasma-subtle: rgba(82, 74, 233, 0.12);
+  --color-sulfur: #f5f28e;
+  --color-sulfur-subtle: rgba(245, 242, 142, 0.2);
+  --color-limestone: #f7f6f2;
+  --color-pumice: #e2e2df;
+  --color-obsidian: #070607;
+  --color-chalk: #ffffff;
+
+  /* Semantic Colors */
+  --color-bg: var(--color-pumice);
+  --color-surface: var(--color-limestone);
+  --color-text: var(--color-obsidian);
+  --color-text-secondary: rgba(7, 6, 7, 0.55);
+  --color-text-tertiary: rgba(7, 6, 7, 0.35);
+  --color-border: rgba(7, 6, 7, 0.1);
+  --color-border-strong: rgba(7, 6, 7, 0.2);
+
+  /* Stream Colors */
+  --stream-people: #fc5000;
+  --stream-transactions: #524ae9;
+  --stream-newsletters: #2d8a4e;
+  --stream-notifications: #e6a817;
+  --stream-promotions: #c44dff;
+
+  /* Typography — Families */
+  --font-display: 'Anton', 'Bebas Neue', sans-serif;
+  --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace;
+
+  /* Typography — Scale */
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.5rem;      /* 24px */
+  --text-2xl: 2rem;       /* 32px */
+  --text-3xl: 3rem;       /* 48px */
+  --text-4xl: 4rem;       /* 64px */
+  --text-5xl: 5rem;       /* 80px */
+  --text-display: 6rem;   /* 96px */
+
+  /* Typography — Line Heights */
+  --leading-tight: 0.95;
+  --leading-snug: 1.1;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.55;
+
+  /* Typography — Weights */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Spacing */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 40px;
+  --radius-pill: 800px;
+  --radius-input: 100px;
+
+  /* Layout */
+  --sidebar-width: 260px;
+  --topbar-height: 64px;
+  --content-max-width: 1280px;
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- Dark Theme (Midnight) --- */
+[data-theme="dark"] {
+  --color-bg: #0f0e0e;
+  --color-surface: #1a1918;
+  --color-text: #f0ede8;
+  --color-text-secondary: rgba(240, 237, 232, 0.55);
+  --color-text-tertiary: rgba(240, 237, 232, 0.35);
+  --color-border: rgba(240, 237, 232, 0.08);
+  --color-border-strong: rgba(240, 237, 232, 0.15);
+}
+
+/* --- Base Styles --- */
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Typography Classes --- */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-tight);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-regular);
+  font-size: var(--text-sm);
+  letter-spacing: -0.01em;
+}
+
+/* --- Scrollbar Styling --- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-tertiary);
+}
+
+/* --- Selection --- */
+::selection {
+  background-color: var(--color-ember-subtle);
+  color: var(--color-ember);
+}
+
+/* --- ASCII Decorative Borders --- */
+.ascii-border {
+  border: 1.5px solid var(--color-border-strong);
+  position: relative;
+}
+
+.ascii-border::before {
+  content: '┌' attr(data-label) '─┐';
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg);
+  padding: 0 var(--space-2);
+  letter-spacing: 0.05em;
+}
+
+/* --- Utility Classes --- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* --- Animations --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes asciiSpin {
+  0% { content: '⠋'; }
+  10% { content: '⠙'; }
+  20% { content: '⠹'; }
+  30% { content: '⠸'; }
+  40% { content: '⠼'; }
+  50% { content: '⠴'; }
+  60% { content: '⠦'; }
+  70% { content: '⠧'; }
+  80% { content: '⠇'; }
+  90% { content: '⠏'; }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--transition-slow) both;
+}
+
+.animate-slide-left {
+  animation: slideInLeft var(--transition-slow) both;
+}
+
+.animate-slide-right {
+  animation: slideInRight var(--transition-slow) both;
+}
+
+/* Staggered children animation */
+.stagger-children > * {
+  animation: fadeIn var(--transition-slow) both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+.stagger-children > *:nth-child(9) { animation-delay: 400ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 450ms; }
