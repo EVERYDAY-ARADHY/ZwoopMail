@@ -91,8 +91,19 @@ export async function getMessages(accessToken, messageIds) {
     const promises = batch.map((msg) => getMessage(accessToken, msg.id))
     const batchResults = await Promise.all(promises)
     results.push(...batchResults)
-  }
   return results
+}
+
+/**
+ * Fetch attachment or inline image binary data by message ID and attachment ID
+ */
+export async function getAttachment(accessToken, messageId, attachmentId) {
+  const res = await fetch(`${GMAIL_API_BASE}/messages/${messageId}/attachments/${attachmentId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) throw new Error(`Failed to fetch attachment ${attachmentId}`)
+  const data = await res.json()
+  return data.data ? data.data.replace(/-/g, '+').replace(/_/g, '/') : ''
 }
 
 /**
@@ -175,9 +186,11 @@ function parseGmailMessage(raw) {
   const senderName = senderMatch ? senderMatch[1].replace(/"/g, '') : from
   const senderEmail = senderMatch ? senderMatch[2] : from
 
-  // Extract body
+  // Extract body and attachments
   let bodyHtml = ''
   let bodyText = ''
+  const attachments = []
+  const inlineCids = {}
 
   function extractBody(part) {
     if (part.mimeType === 'text/html' && part.body?.data) {
@@ -186,6 +199,28 @@ function parseGmailMessage(raw) {
     if (part.mimeType === 'text/plain' && part.body?.data) {
       bodyText = decodeBase64Url(part.body.data)
     }
+    
+    // Detect attachments and inline images
+    if (part.body && (part.body.attachmentId || (part.filename && part.body.data))) {
+      const cidHeader = part.headers?.find((h) => h.name.toLowerCase() === 'content-id')?.value
+      const cid = cidHeader ? cidHeader.replace(/^<|>$/g, '').trim() : null
+      const base64Data = part.body.data ? part.body.data.replace(/-/g, '+').replace(/_/g, '/') : null
+      
+      const attachmentInfo = {
+        id: part.body.attachmentId,
+        filename: part.filename || (cid ? `inline-${cid}` : 'attachment'),
+        mimeType: part.mimeType || 'application/octet-stream',
+        size: part.body.size,
+        cid: cid,
+        data: base64Data
+      }
+
+      attachments.push(attachmentInfo)
+      if (cid) {
+        inlineCids[cid] = attachmentInfo
+      }
+    }
+
     if (part.parts) {
       part.parts.forEach(extractBody)
     }
@@ -213,6 +248,8 @@ function parseGmailMessage(raw) {
     snippet,
     bodyHtml,
     bodyText: bodyText || stripHtml(bodyHtml),
+    attachments,
+    inlineCids,
     isUnread,
     isStarred,
     labels,

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMail } from '../../context/MailContext'
+import { getAttachment } from '../../api/gmail'
 import Avatar from '../shared/Avatar'
 import Button from '../shared/Button'
 import EmptyState from '../shared/EmptyState'
@@ -9,6 +10,78 @@ export default function EmailView() {
   const { selectedEmail, accessToken, user } = useMail()
   const [readerMode, setReaderMode] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [processedHtml, setProcessedHtml] = useState('')
+  const [loadedAttachments, setLoadedAttachments] = useState([])
+
+  useEffect(() => {
+    if (!selectedEmail) {
+      setProcessedHtml('')
+      setLoadedAttachments([])
+      return
+    }
+
+    let isMounted = true
+    const email = selectedEmail
+    let html = email.bodyHtml || ''
+    const initialAttachments = [...(email.attachments || [])]
+
+    setProcessedHtml(html)
+    setLoadedAttachments(initialAttachments)
+
+    async function processAttachmentsAndImages() {
+      if (!initialAttachments.length && !html) return
+
+      let htmlChanged = false
+      const updatedAttachments = [...initialAttachments]
+
+      for (let i = 0; i < updatedAttachments.length; i++) {
+        const att = updatedAttachments[i]
+
+        // Fetch attachment binary from Gmail API if missing and we have accessToken + attachmentId
+        if (!att.data && att.id && accessToken) {
+          try {
+            const base64Data = await getAttachment(accessToken, email.id, att.id)
+            att.data = base64Data
+          } catch (err) {
+            console.error('Failed to load attachment data:', att.filename, err)
+          }
+        }
+
+        // Replace references in HTML (cid: or filename) with Base64 Data URI
+        if (att.data && att.mimeType) {
+          const dataUrl = `data:${att.mimeType};base64,${att.data}`
+          
+          if (att.cid) {
+            const escapedCid = att.cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const cidRegex = new RegExp(`src=["']cid:${escapedCid}["']`, 'gi')
+            if (cidRegex.test(html)) {
+              html = html.replace(cidRegex, `src="${dataUrl}"`)
+              htmlChanged = true
+            }
+          }
+          if (att.filename) {
+            const escapedName = att.filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const nameRegex = new RegExp(`src=["'](cid:)?${escapedName}["']`, 'gi')
+            if (nameRegex.test(html)) {
+              html = html.replace(nameRegex, `src="${dataUrl}"`)
+              htmlChanged = true
+            }
+          }
+        }
+      }
+
+      if (isMounted) {
+        if (htmlChanged) setProcessedHtml(html)
+        setLoadedAttachments(updatedAttachments)
+      }
+    }
+
+    processAttachmentsAndImages()
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedEmail, accessToken])
 
   if (!selectedEmail) {
     return (
@@ -105,10 +178,10 @@ export default function EmailView() {
             {email.bodyText || email.snippet}
           </div>
         ) : (
-          email.bodyHtml ? (
+          processedHtml ? (
             <div
               className="email-view-html"
-              dangerouslySetInnerHTML={{ __html: email.bodyHtml }}
+              dangerouslySetInnerHTML={{ __html: processedHtml }}
             />
           ) : (
             <div className="email-view-reader">
@@ -116,7 +189,49 @@ export default function EmailView() {
             </div>
           )
         )}
+
+        {/* Attachments Section */}
+        {loadedAttachments && loadedAttachments.length > 0 && (
+          <div className="email-view-attachments">
+            <div className="attachments-section-title font-mono">
+              ─── ATTACHMENTS ({loadedAttachments.length}) ───
+            </div>
+            <div className="attachments-grid">
+              {loadedAttachments.map((att, idx) => {
+                const isImage = att.mimeType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(att.filename)
+                const dataUrl = att.data ? `data:${att.mimeType};base64,${att.data}` : null
+
+                return (
+                  <div key={idx} className="attachment-card">
+                    {isImage && dataUrl ? (
+                      <div className="attachment-image-preview">
+                        <img src={dataUrl} alt={att.filename} />
+                      </div>
+                    ) : (
+                      <div className="attachment-file-icon font-mono">
+                        {att.filename ? att.filename.split('.').pop().toUpperCase() : 'FILE'}
+                      </div>
+                    )}
+                    <div className="attachment-footer">
+                      <span className="attachment-name font-mono" title={att.filename}>
+                        {att.filename}
+                      </span>
+                      {dataUrl ? (
+                        <a href={dataUrl} download={att.filename} className="attachment-download-btn font-mono">
+                          [↓ save]
+                        </a>
+                      ) : (
+                        <span className="attachment-loading font-mono">loading...</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
+

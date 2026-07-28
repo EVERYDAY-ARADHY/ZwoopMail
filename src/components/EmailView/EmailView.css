@@ -252,3 +252,107 @@
     font-size: var(--text-xl);
   }
 }
+
+/* Attachments Section */
+.email-view-attachments {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px dashed var(--color-border);
+}
+
+.attachments-section-title {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-4);
+}
+
+.attachments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.attachment-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color var(--transition-fast);
+}
+
+.attachment-card:hover {
+  border-color: var(--color-border-strong);
+}
+
+.attachment-image-preview {
+  width: 100%;
+  height: 140px;
+  background-color: var(--color-pumice);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.attachment-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-normal);
+}
+
+.attachment-card:hover .attachment-image-preview img {
+  transform: scale(1.03);
+}
+
+.attachment-file-icon {
+  width: 100%;
+  height: 100px;
+  background-color: var(--color-pumice);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.1em;
+}
+
+.attachment-footer {
+  padding: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  background-color: var(--color-surface);
+}
+
+.attachment-name {
+  font-size: 11px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.attachment-download-btn {
+  font-size: 11px;
+  color: var(--color-ember);
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.attachment-download-btn:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.attachment-loading {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
