@@ -62,6 +62,46 @@ const STREAM_EMPTY = {
   └────────────────────┘`,
     message: 'Your wallet is safe',
   },
+  starred: {
+    art: `
+  ┌────────────────────┐
+  │    ☆               │
+  │   ✦★✦  No starred  │
+  │    ☆    emails.    │
+  │                    │
+  └────────────────────┘`,
+    message: 'Star emails to bookmark them here',
+  },
+  archived: {
+    art: `
+  ┌────────────────────┐
+  │   ╔════╗           │
+  │   ║ ▤  ║  Archive   │
+  │   ╚════╝  is clean.│
+  │                    │
+  └────────────────────┘`,
+    message: 'Archived emails appear here out of sight',
+  },
+  sent: {
+    art: `
+  ┌────────────────────┐
+  │    ↗               │
+  │   ───▶  No sent    │
+  │         messages.  │
+  │                    │
+  └────────────────────┘`,
+    message: 'Emails you compose and send end up here',
+  },
+  drafts: {
+    art: `
+  ┌────────────────────┐
+  │   ┌──┐             │
+  │   │✎ │  No saved   │
+  │   └──┘  drafts.    │
+  │                    │
+  └────────────────────┘`,
+    message: 'Your unfinished compositions rest here',
+  },
 }
 
 export default function EmptyState({ stream = null }) {

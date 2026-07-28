@@ -7,10 +7,22 @@ import { STREAM_CONFIG } from '../shared/StreamBadge'
 import './EmailList.css'
 
 export default function EmailList() {
-  const { categorizedEmails, activeStream, selectEmail, selectedEmail, isLoading } = useMail()
+  const { categorizedEmails, emails, archivedEmails, activeStream, selectEmail, selectedEmail, isLoading } = useMail()
 
-  const emails = categorizedEmails[activeStream] || []
-  const config = STREAM_CONFIG[activeStream]
+  let displayEmails = []
+  if (activeStream === 'starred') {
+    const allEmails = [...(emails || []), ...(archivedEmails || [])]
+    const seen = new Set()
+    displayEmails = allEmails.filter(e => e && e.isStarred && !seen.has(e.id) && seen.add(e.id))
+  } else if (activeStream === 'archived') {
+    displayEmails = archivedEmails || []
+  } else if (activeStream === 'sent' || activeStream === 'drafts') {
+    displayEmails = []
+  } else {
+    displayEmails = categorizedEmails[activeStream] || []
+  }
+
+  const config = STREAM_CONFIG[activeStream] || { label: activeStream.toUpperCase(), icon: '◉' }
 
   if (isLoading) {
     return (
@@ -27,7 +39,7 @@ export default function EmailList() {
         <div className="email-list-stream-info">
           <span className="email-list-stream-icon">{config?.icon}</span>
           <h2 className="email-list-stream-name font-display">{config?.label}</h2>
-          <span className="email-list-count font-mono">{emails.length}</span>
+          <span className="email-list-count font-mono">{displayEmails.length}</span>
         </div>
       </div>
 
@@ -35,11 +47,11 @@ export default function EmailList() {
       <NeedsAttention />
 
       {/* Email Items */}
-      {emails.length === 0 ? (
+      {displayEmails.length === 0 ? (
         <EmptyState stream={activeStream} />
       ) : (
         <div className="email-list-items stagger-children">
-          {emails.map((email) => (
+          {displayEmails.map((email) => (
             <EmailItem
               key={email.id}
               email={email}

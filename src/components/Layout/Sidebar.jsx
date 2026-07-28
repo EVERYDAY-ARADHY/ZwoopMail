@@ -61,14 +61,29 @@ export default function Sidebar({ emailCounts = {} }) {
       {/* Quick Links */}
       <div className="sidebar-section">
         <div className="sidebar-section-label">─── QUICK ─────</div>
-        <button className="sidebar-link">
+        <button
+          className={`sidebar-link ${activeStream === 'starred' ? 'active' : ''}`}
+          onClick={() => setActiveStream('starred')}
+        >
           <span>☆</span> Starred
         </button>
-        <button className="sidebar-link">
+        <button
+          className={`sidebar-link ${activeStream === 'archived' ? 'active' : ''}`}
+          onClick={() => setActiveStream('archived')}
+        >
+          <span>▤</span> Archived
+        </button>
+        <button
+          className={`sidebar-link ${activeStream === 'sent' ? 'active' : ''}`}
+          onClick={() => setActiveStream('sent')}
+        >
           <span>↗</span> Sent
         </button>
-        <button className="sidebar-link">
-          <span>▤</span> Drafts
+        <button
+          className={`sidebar-link ${activeStream === 'drafts' ? 'active' : ''}`}
+          onClick={() => setActiveStream('drafts')}
+        >
+          <span>✎</span> Drafts
         </button>
       </div>
 

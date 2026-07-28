@@ -4,6 +4,10 @@ const STREAM_CONFIG = {
   newsletters: { label: 'Newsletters', icon: '▤', color: 'var(--stream-newsletters)' },
   notifications: { label: 'Notifications', icon: '✦', color: 'var(--stream-notifications)' },
   promotions: { label: 'Promotions', icon: '▻', color: 'var(--stream-promotions)' },
+  starred: { label: 'Starred', icon: '☆', color: '#f5c800' },
+  archived: { label: 'Archived', icon: '▤', color: 'var(--color-text-secondary)' },
+  sent: { label: 'Sent', icon: '↗', color: 'var(--color-plasma-violet)' },
+  drafts: { label: 'Drafts', icon: '✎', color: 'var(--stream-notifications)' },
 }
 
 export default function StreamBadge({ stream, count = null, compact = false }) {

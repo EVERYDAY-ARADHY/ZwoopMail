@@ -1,10 +1,38 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMail } from '../../context/MailContext'
 import { getAttachment } from '../../api/gmail'
 import Avatar from '../shared/Avatar'
 import Button from '../shared/Button'
 import EmptyState from '../shared/EmptyState'
 import './EmailView.css'
+
+function ShadowHtmlView({ html }) {
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    if (containerRef.current && html) {
+      let shadow = containerRef.current.shadowRoot
+      if (!shadow) {
+        shadow = containerRef.current.attachShadow({ mode: 'open' })
+      }
+      shadow.innerHTML = `<style>
+        :host {
+          display: block;
+          color: inherit;
+          font-family: inherit;
+          font-size: 15px;
+          line-height: 1.6;
+          overflow-x: auto;
+        }
+        a { color: #fc5000; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        img { max-width: 100%; height: auto; border-radius: 4px; }
+      </style>` + html
+    }
+  }, [html])
+
+  return <div ref={containerRef} className="email-view-html" style={{ width: '100%', overflow: 'hidden' }} />
+}
 
 export default function EmailView() {
   const { selectedEmail, accessToken, user, markAsUnreadEmail, archiveEmail, toggleStarEmail, toggleCompose } = useMail()
@@ -200,10 +228,7 @@ export default function EmailView() {
           </div>
         ) : (
           processedHtml ? (
-            <div
-              className="email-view-html"
-              dangerouslySetInnerHTML={{ __html: processedHtml }}
-            />
+            <ShadowHtmlView html={processedHtml} />
           ) : (
             <div className="email-view-reader">
               {email.bodyText || email.snippet}

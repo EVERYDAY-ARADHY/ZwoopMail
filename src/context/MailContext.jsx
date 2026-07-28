@@ -8,6 +8,7 @@ const initialState = {
   accessToken: null,
   isAuthenticated: false,
   emails: [],
+  archivedEmails: [],
   categorizedEmails: {
     people: [],
     transactions: [],
@@ -87,6 +88,7 @@ function mailReducer(state, action) {
     }
     case 'ARCHIVE_EMAIL': {
       const emailId = action.payload
+      const archivedCandidate = state.emails.find((e) => e.id === emailId) || state.selectedEmail
       const updatedEmails = state.emails.filter((e) => e.id !== emailId)
       const updatedCategorized = {}
       Object.keys(state.categorizedEmails).forEach((key) => {
@@ -94,9 +96,13 @@ function mailReducer(state, action) {
       })
       const currentList = updatedCategorized[state.activeStream] || []
       const nextSelected = currentList.length > 0 ? currentList[0] : null
+      const nextArchived = archivedCandidate && !(state.archivedEmails || []).some(e => e.id === emailId)
+        ? [...(state.archivedEmails || []), archivedCandidate]
+        : (state.archivedEmails || [])
       return {
         ...state,
         emails: updatedEmails,
+        archivedEmails: nextArchived,
         categorizedEmails: updatedCategorized,
         selectedEmail: state.selectedEmail && state.selectedEmail.id === emailId ? nextSelected : state.selectedEmail,
       }
@@ -104,6 +110,9 @@ function mailReducer(state, action) {
     case 'TOGGLE_STAR_EMAIL': {
       const emailId = action.payload
       const updatedEmails = state.emails.map((e) =>
+        e.id === emailId ? { ...e, isStarred: !e.isStarred } : e
+      )
+      const updatedArchived = (state.archivedEmails || []).map((e) =>
         e.id === emailId ? { ...e, isStarred: !e.isStarred } : e
       )
       const updatedCategorized = {}
@@ -119,6 +128,7 @@ function mailReducer(state, action) {
       return {
         ...state,
         emails: updatedEmails,
+        archivedEmails: updatedArchived,
         categorizedEmails: updatedCategorized,
         selectedEmail: updatedSelected,
       }
