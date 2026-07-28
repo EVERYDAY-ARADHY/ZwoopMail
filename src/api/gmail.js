@@ -81,11 +81,18 @@ export async function getMessage(accessToken, messageId) {
 }
 
 /**
- * Get multiple messages in parallel
+ * Get multiple messages in parallel (in chunks of 25 to avoid API limits)
  */
 export async function getMessages(accessToken, messageIds) {
-  const promises = messageIds.map((msg) => getMessage(accessToken, msg.id))
-  return Promise.all(promises)
+  const results = []
+  const batchSize = 25
+  for (let i = 0; i < messageIds.length; i += batchSize) {
+    const batch = messageIds.slice(i, i + batchSize)
+    const promises = batch.map((msg) => getMessage(accessToken, msg.id))
+    const batchResults = await Promise.all(promises)
+    results.push(...batchResults)
+  }
+  return results
 }
 
 /**

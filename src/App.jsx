@@ -50,8 +50,8 @@ function AppContent() {
       localStorage.setItem('zwoop_access_token', token)
       localStorage.removeItem('zwoop_demo_mode')
 
-      // Fetch emails
-      const messageList = await listMessages(token, 30)
+      // Fetch emails (increased to 100 for richer categorized streams)
+      const messageList = await listMessages(token, 100)
       const emails = await getMessages(token, messageList)
 
       dispatch({ type: 'SET_EMAILS', payload: emails })

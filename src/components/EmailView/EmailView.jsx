@@ -6,8 +6,9 @@ import EmptyState from '../shared/EmptyState'
 import './EmailView.css'
 
 export default function EmailView() {
-  const { selectedEmail, accessToken } = useMail()
+  const { selectedEmail, accessToken, user } = useMail()
   const [readerMode, setReaderMode] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   if (!selectedEmail) {
     return (
@@ -59,17 +60,42 @@ export default function EmailView() {
         <div className="email-view-meta">
           <Avatar name={email.senderName} size={40} />
           <div className="email-view-meta-info">
-            <div className="email-view-sender">{email.senderName}</div>
-            {email.senderEmail && email.senderEmail !== email.senderName && (
-              <div className="email-view-sender-email font-mono">
-                {email.senderEmail.startsWith('<') ? email.senderEmail : `<${email.senderEmail}>`}
-              </div>
-            )}
+            <div className="email-view-sender-row">
+              <span className="email-view-sender">{email.senderName}</span>
+              <button
+                className="email-view-details-btn font-mono"
+                onClick={() => setDetailsOpen(!detailsOpen)}
+                title="Toggle sender details"
+              >
+                {detailsOpen ? '▲' : '▼'}
+              </button>
+            </div>
           </div>
           <div className="email-view-date font-mono">
             {formatFullDate(email.date)}
           </div>
         </div>
+
+        {detailsOpen && (
+          <div className="email-view-details-popup font-mono animate-fade-in">
+            <div className="detail-row">
+              <span className="detail-label">from:</span>
+              <span className="detail-value">{email.senderName} &lt;{email.senderEmail}&gt;</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">to:</span>
+              <span className="detail-value">{email.to || (user ? user.emailAddress : 'me')}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">date:</span>
+              <span className="detail-value">{formatFullDate(email.date)}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">subject:</span>
+              <span className="detail-value">{email.subject || '(no subject)'}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Body */}
