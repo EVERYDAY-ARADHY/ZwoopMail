@@ -19,54 +19,8 @@ const LOGO_ART = `
 ╚════════════════════════════════════════════════════════╝
 `
 
-export default function LoginScreen({ onSignIn }) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [previewEmails, setPreviewEmails] = useState([])
-
-const login = useGoogleLogin({
-    flow: 'implicit',
-    scope: 'https://www.googleapis.com/auth/gmail.modify',
-  onSuccess: async (tokenResponse) => {
-      const token = tokenResponse.access_token
-      setIsLoading(true)
-      setError(null)
-
-      try {
-        const listRes = await fetch(
-  'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5&q=in:inbox',
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-        const listData = await listRes.json()
-        const ids = listData.messages || []
-
-        const details = await Promise.all(
-          ids.map(({ id }) =>
-            fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            }).then(r => r.json())
-          )
-        )
-
-        setPreviewEmails(details)
-
-        await onSignIn(token)
-      } catch(err) {
-        setError(err.message || 'Failed to fetch emails')
-        setIsLoading(false)
-      }
-    },
-    onError: (err) => {
-      setError('Google sign-in failed. Try again.')
-      console.error(err)
-    },
-  })
-
-  const handleClick = () => {
-    setError(null)
-    login()
-  }
-
+// Pure presentational layout — receives all state as props
+function LoginLayout({ isLoading, error, previewEmails, buttonLabel, onButtonClick }) {
   return (
     <div className="login-screen">
       <div className="login-dots" aria-hidden="true" />
@@ -91,11 +45,11 @@ const login = useGoogleLogin({
         <div className="login-cta">
           <Button
             variant="primary"
-            onClick={handleClick}
+            onClick={onButtonClick}
             disabled={isLoading}
             icon="→"
           >
-            {isLoading ? 'Connecting...' : 'Sign in with Google'}
+            {isLoading ? 'Connecting...' : buttonLabel}
           </Button>
         </div>
 
@@ -103,7 +57,7 @@ const login = useGoogleLogin({
           <p className="login-error font-mono">{error}</p>
         )}
 
-      {previewEmails.length > 0 && (
+        {previewEmails && previewEmails.length > 0 && (
           <div style={{marginTop:'1rem', textAlign:'left', fontFamily:'monospace', fontSize:'0.75rem', opacity:0.8}}>
             <p style={{marginBottom:'0.5rem', color:'var(--color-accent, #a0d8ef)'}}>
               ✓ Auth verified — {previewEmails.length} emails fetched:
@@ -134,4 +88,80 @@ const login = useGoogleLogin({
       </div>
     </div>
   )
+}
+
+// OAuth variant — ONLY rendered inside a GoogleOAuthProvider tree
+function OAuthLoginScreen({ onSignIn }) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [previewEmails, setPreviewEmails] = useState([])
+
+  const login = useGoogleLogin({
+    flow: 'implicit',
+    scope: 'https://www.googleapis.com/auth/gmail.modify',
+    onSuccess: async (tokenResponse) => {
+      const token = tokenResponse.access_token
+      setIsLoading(true)
+      setError(null)
+      try {
+        const listRes = await fetch(
+          'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5&q=in:inbox',
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        const listData = await listRes.json()
+        const ids = listData.messages || []
+        const details = await Promise.all(
+          ids.map(({ id }) =>
+            fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }).then(r => r.json())
+          )
+        )
+        setPreviewEmails(details)
+        await onSignIn(token)
+      } catch (err) {
+        setError(err.message || 'Failed to fetch emails')
+        setIsLoading(false)
+      }
+    },
+    onError: (err) => {
+      setError('Google sign-in failed. Try again.')
+      console.error(err)
+    },
+  })
+
+  return (
+    <LoginLayout
+      isLoading={isLoading}
+      error={error}
+      previewEmails={previewEmails}
+      buttonLabel="Sign in with Google"
+      onButtonClick={() => { setError(null); login() }}
+    />
+  )
+}
+
+// Demo variant — no OAuth hooks at all; directly loads mock data
+function DemoLoginScreen({ onSignIn }) {
+  const [isLoading, setIsLoading] = useState(false)
+  return (
+    <LoginLayout
+      isLoading={isLoading}
+      error={null}
+      previewEmails={[]}
+      buttonLabel="Try Demo"
+      onButtonClick={() => { setIsLoading(true); onSignIn(null) }}
+    />
+  )
+}
+
+// Check at module level — no hook, just env var inspection
+const hasRealClientId = Boolean(
+  import.meta.env.VITE_GOOGLE_CLIENT_ID &&
+  import.meta.env.VITE_GOOGLE_CLIENT_ID.includes('.apps.googleusercontent.com')
+)
+
+export default function LoginScreen({ onSignIn }) {
+  if (hasRealClientId) return <OAuthLoginScreen onSignIn={onSignIn} />
+  return <DemoLoginScreen onSignIn={onSignIn} />
 }

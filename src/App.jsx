@@ -10,6 +10,7 @@ import TopBar from './components/Layout/TopBar'
 import EmailList from './components/EmailList/EmailList'
 import EmailView from './components/EmailView/EmailView'
 import Compose from './components/Compose/Compose'
+import TargetCursor from './components/shared/TargetCursor'
 
 import './App.css'
 
@@ -109,20 +110,10 @@ function AppContent() {
   )
 }
 
-import TargetCursor from './components/shared/TargetCursor'
-
 export default function App() {
   return (
     <MailProvider>
-      <TargetCursor 
-        targetSelector=".cursor-target, button, a, select, [role='button'], .email-item, .attention-item, .sidebar-stream, .sidebar-link, .ai-action-btn, .btn, .email-view-reader-toggle, .sidebar-logo, .login-card Button"
-        spinDuration={7.5}
-        hideDefaultCursor={true}
-        parallaxOn={true}
-        hoverDuration={0.25}
-        cursorColor="#fc5000"
-        cursorColorOnTarget="#fc5000"
-      />
+      <TargetCursor cursorColor="#fc5000" />
       <AppContent />
     </MailProvider>
   )
