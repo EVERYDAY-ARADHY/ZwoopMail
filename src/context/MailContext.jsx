@@ -78,6 +78,12 @@ export function MailProvider({ children }) {
     dispatch({ type: 'SET_COMPOSING', payload: !state.isComposing })
   }, [state.isComposing])
 
+  const logout = useCallback(() => {
+    localStorage.removeItem('zwoop_access_token')
+    localStorage.removeItem('zwoop_demo_mode')
+    dispatch({ type: 'LOGOUT' })
+  }, [])
+
   const value = {
     ...state,
     dispatch,
@@ -85,6 +91,7 @@ export function MailProvider({ children }) {
     selectEmail,
     toggleTheme,
     toggleCompose,
+    logout,
   }
 
   return (

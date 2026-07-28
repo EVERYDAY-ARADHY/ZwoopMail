@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { useMail } from '../../context/MailContext'
 import { STREAM_CONFIG } from '../shared/StreamBadge'
 import './Sidebar.css'
@@ -5,7 +6,19 @@ import './Sidebar.css'
 const STREAMS = ['people', 'transactions', 'newsletters', 'notifications', 'promotions']
 
 export default function Sidebar({ emailCounts = {} }) {
-  const { activeStream, setActiveStream, toggleCompose, toggleTheme, theme, user } = useMail()
+  const { activeStream, setActiveStream, toggleCompose, toggleTheme, theme, user, logout, accessToken } = useMail()
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <aside className="sidebar">
@@ -59,21 +72,68 @@ export default function Sidebar({ emailCounts = {} }) {
         </button>
       </div>
 
-      {/* Theme Toggle */}
-      <div className="sidebar-footer">
+      {/* Footer & User Area */}
+      <div className="sidebar-footer" ref={menuRef}>
         <button className="sidebar-theme-toggle" onClick={toggleTheme}>
           <span>{theme === 'light' ? '◐' : '◑'}</span>
           <span>{theme === 'light' ? 'Midnight' : 'Warm'}</span>
         </button>
 
         {user && (
-          <div className="sidebar-user">
-            <span className="sidebar-user-indicator">┌─</span>
-            <span className="sidebar-user-email">{user.emailAddress}</span>
-            <span className="sidebar-user-indicator">─┘</span>
+          <div className="sidebar-user-container">
+            {userMenuOpen && (
+              <div className="sidebar-user-menu animate-fade-in">
+                <div className="user-menu-header">
+                  <div className="user-menu-status">
+                    <span className="status-dot">◉</span>
+                    {accessToken ? 'Gmail Connected' : 'Demo Account'}
+                  </div>
+                  <div className="user-menu-email">{user.emailAddress}</div>
+                </div>
+                <div className="user-menu-divider" />
+                <button
+                  className="user-menu-item"
+                  onClick={() => {
+                    setUserMenuOpen(false)
+                    alert("ZwoopMail v1.0 • Overclock Delhi '26\nAI models running optimized zero-latency categorization.")
+                  }}
+                >
+                  <span>⚙</span> AI Settings & Status
+                </button>
+                <button
+                  className="user-menu-item"
+                  onClick={() => {
+                    setUserMenuOpen(false)
+                    toggleTheme()
+                  }}
+                >
+                  <span>{theme === 'light' ? '◐' : '◑'}</span> Switch to {theme === 'light' ? 'Dark' : 'Light'} Theme
+                </button>
+                <div className="user-menu-divider" />
+                <button
+                  className="user-menu-item logout-btn"
+                  onClick={() => {
+                    setUserMenuOpen(false)
+                    logout()
+                  }}
+                >
+                  <span>⏻</span> Log Out
+                </button>
+              </div>
+            )}
+
+            <button
+              className={`sidebar-user-btn ${userMenuOpen ? 'active' : ''}`}
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+            >
+              <span className="sidebar-user-indicator">┌─</span>
+              <span className="sidebar-user-email">{user.emailAddress}</span>
+              <span className="sidebar-user-indicator">▲</span>
+            </button>
           </div>
         )}
       </div>
     </aside>
   )
 }
+

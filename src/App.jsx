@@ -30,11 +30,25 @@ function AppContent() {
   const handleSignIn = useCallback(async (token) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true })
+      if (!token) {
+        // Direct Demo Mode sign-in
+        localStorage.setItem('zwoop_demo_mode', 'true')
+        localStorage.removeItem('zwoop_access_token')
+        dispatch({ type: 'SET_USER', payload: { emailAddress: 'aradhy.demo@gmail.com' } })
+        dispatch({ type: 'SET_CATEGORIZED', payload: categorizeMockEmails() })
+        dispatch({ type: 'SET_LOADING', payload: false })
+        return
+      }
+
       dispatch({ type: 'SET_ACCESS_TOKEN', payload: token })
 
       // Get user profile
       const profile = await getUserProfile(token)
       dispatch({ type: 'SET_USER', payload: profile })
+      
+      // Save valid token in localStorage
+      localStorage.setItem('zwoop_access_token', token)
+      localStorage.removeItem('zwoop_demo_mode')
 
       // Fetch emails
       const messageList = await listMessages(token, 30)
@@ -73,8 +87,9 @@ function AppContent() {
       }
     } catch (err) {
       console.error('Sign in failed:', err)
+      localStorage.removeItem('zwoop_access_token')
 
-      // Fallback to mock data for demo
+      // Fallback to mock data for demo if Gmail API fails / token expired
       console.log('Using mock data for demo...')
       dispatch({ type: 'SET_USER', payload: { emailAddress: 'aradhy.demo@gmail.com' } })
       dispatch({ type: 'SET_CATEGORIZED', payload: categorizeMockEmails() })
@@ -82,13 +97,18 @@ function AppContent() {
     }
   }, [dispatch])
 
-  // Load mock data for development (when no Google client ID is configured)
+  // Restore authentication state across page refreshes
   useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-    if (!clientId && !isAuthenticated) {
-      // No client ID set — show login screen; mock data loads on sign-in attempt
+    if (isAuthenticated) return
+    const savedToken = localStorage.getItem('zwoop_access_token')
+    const isDemoMode = localStorage.getItem('zwoop_demo_mode') === 'true'
+
+    if (savedToken) {
+      handleSignIn(savedToken)
+    } else if (isDemoMode) {
+      handleSignIn(null)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, handleSignIn])
 
   if (!isAuthenticated) {
     return <LoginScreen onSignIn={handleSignIn} />

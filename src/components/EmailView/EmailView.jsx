@@ -60,19 +60,16 @@ export default function EmailView() {
           <Avatar name={email.senderName} size={40} />
           <div className="email-view-meta-info">
             <div className="email-view-sender">{email.senderName}</div>
-            <div className="email-view-sender-email font-mono">{email.senderEmail}</div>
+            {email.senderEmail && email.senderEmail !== email.senderName && (
+              <div className="email-view-sender-email font-mono">
+                {email.senderEmail.startsWith('<') ? email.senderEmail : `<${email.senderEmail}>`}
+              </div>
+            )}
           </div>
           <div className="email-view-date font-mono">
             {formatFullDate(email.date)}
           </div>
         </div>
-
-        {/* Monospace metadata block */}
-        <pre className="email-view-metadata font-mono">
-{`From: ${email.senderName} <${email.senderEmail}>
-  To: ${email.to || '—'}
-Date: ${formatFullDate(email.date)}`}
-        </pre>
       </div>
 
       {/* Body */}
