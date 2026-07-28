@@ -59,9 +59,6 @@ export default function EmailItem({ email, isSelected, onClick }) {
         <div className="email-item-subject">
           {email.subject || '(no subject)'}
         </div>
-        <div className="email-item-snippet">
-          {email.snippet}
-        </div>
       </div>
     </button>
   )

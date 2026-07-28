@@ -4,7 +4,7 @@
   gap: var(--space-3);
   width: 100%;
   padding: var(--space-4) var(--space-5);
-  background: transparent;
+  background: var(--color-surface);
   border: none;
   border-bottom: 1px solid var(--color-border);
   cursor: pointer;
@@ -14,7 +14,7 @@
 }
 
 .email-item:hover {
-  background-color: var(--color-border);
+  background-color: var(--color-pumice);
 }
 
 .email-item.selected {
@@ -65,7 +65,7 @@
 }
 
 .email-item-sender {
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   font-size: var(--text-sm);
   color: var(--color-text);
   overflow: hidden;
@@ -73,36 +73,24 @@
   white-space: nowrap;
 }
 
-.email-item.unread .email-item-sender {
-  font-weight: var(--weight-semibold);
-}
-
 .email-item-date {
   font-size: 11px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .email-item-subject {
   font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--color-text);
+  font-weight: var(--weight-regular);
+  color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 2px;
 }
 
 .email-item.unread .email-item-subject {
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
 }
 
-.email-item-snippet {
-  font-size: var(--text-xs);
-  color: var(--color-text-tertiary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.4;
-}
