@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useGoogleLogin } from '@react-oauth/google'
 import Button from '../shared/Button'
 import AsciiSculpture from '../shared/AsciiSculpture'
 import './LoginScreen.css'
@@ -21,52 +22,76 @@ const LOGO_ART = `
 export default function LoginScreen({ onSignIn }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [previewEmails, setPreviewEmails] = useState([])
 
-  const handleSignIn = async () => {
-    setIsLoading(true)
+const login = useGoogleLogin({
+    flow: 'implicit',
+    scope: 'https://www.googleapis.com/auth/gmail.modify',
+  onSuccess: async (tokenResponse) => {
+      const token = tokenResponse.access_token
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const listRes = await fetch(
+  'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5&q=in:inbox',
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        const listData = await listRes.json()
+        const ids = listData.messages || []
+
+        const details = await Promise.all(
+          ids.map(({ id }) =>
+            fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }).then(r => r.json())
+          )
+        )
+
+        setPreviewEmails(details)
+
+        await onSignIn(token)
+      } catch(err) {
+        setError(err.message || 'Failed to fetch emails')
+        setIsLoading(false)
+      }
+    },
+    onError: (err) => {
+      setError('Google sign-in failed. Try again.')
+      console.error(err)
+    },
+  })
+
+  const handleClick = () => {
     setError(null)
-    try {
-      await onSignIn()
-    } catch (err) {
-      setError(err.message || 'Sign in failed. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
+    login()
   }
 
   return (
     <div className="login-screen">
-      {/* Dot matrix canvas background (Layer 0) */}
       <div className="login-dots" aria-hidden="true" />
 
-      {/* Atmospheric 3D ASCII Angel Sculpture Screensaver (Layer 1) 
-          RAGE-PROOF FULL-SCREEN SHIELD: Container fills 100% of viewport while Three.js anchors 
-          the massive 3.4x sculpture to the bottom left without a single clipped pixel! */}
       <div className="login-3d-background-saver" aria-hidden="true">
         <AsciiSculpture
           modelPath="/models/angel_sculpture.glb"
-          autoRotateSpeed={0.18} // Serene museum speed
-          scaleMultiplier={3.4} // Enormous colossal stature, zero clipping
+          autoRotateSpeed={0.18}
+          scaleMultiplier={3.4}
         />
       </div>
 
-      {/* Primary Content Card (Layer 10 - Fully formatted to the far right edge of the monitor!) */}
       <div className="login-content animate-fade-in">
-        {/* ASCII Logo */}
         <pre className="login-logo">{LOGO_ART}</pre>
 
-        {/* Tagline */}
         <h1 className="login-title">Email, reimagined.</h1>
         <p className="login-subtitle">
           The calm, AI-powered inbox you deserve.<br />
           No clutter. No anxiety. Just your email.
         </p>
 
-        {/* Sign In CTA */}
         <div className="login-cta">
           <Button
             variant="primary"
-            onClick={handleSignIn}
+            onClick={handleClick}
             disabled={isLoading}
             icon="→"
           >
@@ -78,7 +103,29 @@ export default function LoginScreen({ onSignIn }) {
           <p className="login-error font-mono">{error}</p>
         )}
 
-        {/* Hackathon fork credit - cleanly right-aligned */}
+      {previewEmails.length > 0 && (
+          <div style={{marginTop:'1rem', textAlign:'left', fontFamily:'monospace', fontSize:'0.75rem', opacity:0.8}}>
+            <p style={{marginBottom:'0.5rem', color:'var(--color-accent, #a0d8ef)'}}>
+              ✓ Auth verified — {previewEmails.length} emails fetched:
+            </p>
+            <ul style={{listStyle:'none', padding:0, margin:0}}>
+              {previewEmails.map((m, i) => (
+                <li key={m.id} style={{
+                  padding:'0.35rem 0.5rem',
+                  marginBottom:'0.25rem',
+                  background:'rgba(255,255,255,0.05)',
+                  borderLeft:'2px solid var(--color-accent, #a0d8ef)',
+                  borderRadius:'2px',
+                  lineHeight:1.4,
+                }}>
+                  <span style={{opacity:0.5}}>{i + 1}. </span>
+                  {m.snippet || '(no snippet)'}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="login-credit font-mono">
           ┌─ forked from the chaos of legacy webmail ─┐<br/>
           │&nbsp;&nbsp;built for Overclock Delhi '26&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br/>
