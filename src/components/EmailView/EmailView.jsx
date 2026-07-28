@@ -12,16 +12,6 @@ export default function EmailView() {
   if (!selectedEmail) {
     return (
       <div className="email-view email-view-empty">
-        <pre className="email-view-placeholder font-mono">
-{`┌────────────────────────────────────┐
-│                                    │
-│   ◁  Select an email to read       │
-│                                    │
-│   Use ↑↓ or click an item          │
-│   from the list.                   │
-│                                    │
-└────────────────────────────────────┘`}
-        </pre>
       </div>
     )
   }

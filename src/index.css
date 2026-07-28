@@ -12,6 +12,22 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+button:focus,
+button:focus-visible,
+button:active,
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+a:focus,
+[role="button"]:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* --- Caldera Design Tokens --- */

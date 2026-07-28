@@ -6,11 +6,11 @@ import Button from '../shared/Button'
 import './Compose.css'
 
 const AI_ACTIONS = [
-  { id: 'professional', label: 'Professional', icon: '💼', desc: 'Formal and business-ready' },
-  { id: 'casual', label: 'Casual', icon: '☕', desc: 'Warm and conversational' },
-  { id: 'shorter', label: 'Make Shorter', icon: '✂️', desc: 'Concise and to the point' },
-  { id: 'fix_grammar', label: 'Fix Grammar', icon: '✨', desc: 'Clean up errors & phrasing' },
-  { id: 'urgent', label: 'Urgent Tone', icon: '⚡', desc: 'Convey high importance' }
+  { id: 'professional', label: 'Professional', icon: '■', desc: 'Formal and business-ready' },
+  { id: 'casual', label: 'Casual', icon: '●', desc: 'Warm and conversational' },
+  { id: 'shorter', label: 'Make Shorter', icon: '►', desc: 'Concise and to the point' },
+  { id: 'fix_grammar', label: 'Fix Grammar', icon: '✦', desc: 'Clean up errors & phrasing' },
+  { id: 'urgent', label: 'Urgent Tone', icon: '▲', desc: 'Convey high importance' }
 ]
 
 export default function Compose() {

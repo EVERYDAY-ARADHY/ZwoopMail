@@ -11,12 +11,20 @@
   pointer-events: none;
 }
 
+/* Three.js canvas starts out hidden while the matrix wave plays, then crossfades in smoothly */
 .three-canvas-root {
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  transition: opacity 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity;
+}
+
+.three-canvas-root.model-visible {
+  opacity: 1;
 }
 
 /* Enforce Caldera molten orange (#fc5000) on all ASCII output letters without any background box */
@@ -27,14 +35,61 @@
   text-shadow: 0 0 12px rgba(252, 80, 0, 0.4); /* Glowing cyber-ember aura! */
 }
 
+/* Covers precisely 50% of the entire screen from top ceiling to bottom floor with ZERO padding! */
 .ascii-sculpture-loading {
   position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 50vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
   color: var(--color-ember);
-  font-size: 13px;
-  letter-spacing: 0.05em;
-  background: rgba(7, 6, 7, 0.85);
-  padding: var(--space-2) var(--space-6);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--color-border-strong);
-  white-space: nowrap;
+  font-family: var(--font-mono), 'JetBrains Mono', 'Courier New', monospace;
+  z-index: 5;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity;
+}
+
+.ascii-sculpture-loading.fade-out-wave {
+  opacity: 0;
+}
+
+/* 100% Identical font size, line-height, letter-spacing, and aura glow to Three.js AsciiEffect! */
+.ascii-rain-canvas {
+  font-family: var(--font-mono), 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 10px;
+  line-height: 0.92;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--color-ember);
+  text-shadow: 0 0 12px rgba(252, 80, 0, 0.4); /* Exactly matches the sculpture aura */
+  white-space: pre;
+  background: transparent;
+  border: none;
+  overflow: hidden;
+  opacity: 0.95;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  .ascii-sculpture-loading {
+    width: 100vw;
+  }
+  
+  .ascii-rain-canvas {
+    font-size: 8px;
+    letter-spacing: 0.08em;
+  }
 }

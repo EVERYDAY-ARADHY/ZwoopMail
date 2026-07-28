@@ -4,6 +4,57 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { AsciiEffect } from 'three/examples/jsm/effects/AsciiEffect.js'
 import './AsciiSculpture.css'
 
+/**
+ * Sweeping wall-to-wall ASCII Matrix Wave that fills the entire left 50% of the screen
+ * and crossfades buttery-smoothly into the 3D sculpture without any choppiness.
+ */
+function AsciiRainLoader({ isFading }) {
+  const [gridText, setGridText] = useState('')
+
+  useEffect(() => {
+    const chars = "      .:-=+*#@"
+    const rows = 120
+    const cols = 110
+    let frameId
+    let startTime = performance.now()
+
+    const update = (now) => {
+      frameId = requestAnimationFrame(update)
+      const t = (now - startTime) * 0.0022
+      let result = ''
+
+      for (let r = 0; r < rows; r++) {
+        let rowStr = ''
+        for (let c = 0; c < cols; c++) {
+          const wave1 = Math.sin(c * 0.12 + t * 2.8 + r * 0.08)
+          const wave2 = Math.cos(r * 0.14 - t * 2.0 + c * 0.1)
+          const rain = Math.sin((r * 0.35) - (t * 3.5) + Math.sin(c * 0.25) * 2.5)
+          
+          const combined = (wave1 + wave2 + rain) / 3
+          let normalized = Math.max(0, Math.min(1, (combined + 1) / 2))
+          
+          const rightEdgeFade = c > cols * 0.85 ? Math.max(0, (cols - c) / (cols * 0.15)) : 1
+          normalized = Math.min(1, Math.max(0, normalized * rightEdgeFade))
+
+          const charIdx = Math.floor(normalized * (chars.length - 1))
+          rowStr += chars[charIdx]
+        }
+        result += rowStr + '\n'
+      }
+      setGridText(result)
+    }
+
+    frameId = requestAnimationFrame(update)
+    return () => cancelAnimationFrame(frameId)
+  }, [])
+
+  return (
+    <div className={`ascii-sculpture-loading font-mono ${isFading ? 'fade-out-wave' : ''}`}>
+      <pre className="ascii-rain-canvas" aria-hidden="true">{gridText}</pre>
+    </div>
+  )
+}
+
 export default function AsciiSculpture({
   modelPath = '/models/angel_sculpture.glb',
   width = '100%',
@@ -12,7 +63,10 @@ export default function AsciiSculpture({
   scaleMultiplier = 3.4,  // Enormous statue size safely framed inside full screen
 }) {
   const canvasHolderRef = useRef(null)
-  const [loading, setLoading] = useState(true)
+  
+  // Two-stage transition state for ultra-smooth cinematic metamorphosis
+  const [modelReady, setModelReady] = useState(false)
+  const [unmountLoader, setUnmountLoader] = useState(false)
 
   const sceneRef = useRef(null)
   const pivotRef = useRef(null)
@@ -23,29 +77,19 @@ export default function AsciiSculpture({
     const widthPx = canvasHolderRef.current.clientWidth || window.innerWidth || 1200
     const heightPx = canvasHolderRef.current.clientHeight || window.innerHeight || 900
 
-    // 1. Scene setup with solid RGB(0,0,0) so void space registers as 0 brightness
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x000000)
     sceneRef.current = scene
 
-    // Central pivot group for seamless self-revolution on the horizontal plane
     const pivot = new THREE.Group()
-    
-    // RAGE-PROOF PILLAR PLACEMENT:
-    // By placing the pivot at (-1.35, -0.65, 0) inside a full-screen canvas, the sculpture 
-    // lives cleanly in the bottom-left corner! The lower body sinks below the physical monitor floor,
-    // while the majestic crown and wide rotating wings have 1000px+ of open transparent room above 
-    // and around them—ZERO CUTOFFS POSSIBLE!
     pivot.position.set(-1.35, -0.65, 0)
     scene.add(pivot)
     pivotRef.current = pivot
 
-    // 2. Camera setup pulled back cleanly to Z: 5.6
     const camera = new THREE.PerspectiveCamera(44, widthPx / heightPx, 0.1, 1000)
     camera.position.set(0, 0, 5.6)
     camera.lookAt(0, 0, 0)
 
-    // 3. Crisp sculptural stage lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.25)
     scene.add(ambientLight)
 
@@ -57,12 +101,10 @@ export default function AsciiSculpture({
     rimLight.position.set(-5, 5, -5)
     scene.add(rimLight)
 
-    // 4. Renderer setup with opaque black clear color (Alpha = 1)
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setSize(widthPx, heightPx)
     renderer.setClearColor(0x000000, 1)
 
-    // 5. AsciiEffect setup
     const effect = new AsciiEffect(renderer, '   .:-=+*#@', {
       invert: true,
       resolution: 0.22,
@@ -81,7 +123,6 @@ export default function AsciiSculpture({
     }
     canvasHolderRef.current.appendChild(effect.domElement)
 
-    // 6. Load GLB Model and attach to pivot
     const loader = new GLTFLoader()
     loader.load(
       modelPath,
@@ -108,16 +149,25 @@ export default function AsciiSculpture({
         })
 
         pivot.add(root)
-        setLoading(false)
+        
+        // GPU Warm-up buffer: Give WebGL and AsciiEffect 300ms to compile shaders and paint initial frames
+        // cleanly before starting the seamless CSS opacity crossfade!
+        setTimeout(() => {
+          setModelReady(true)
+          // After 1.4s crossfade concludes, gracefully unmount the wave from memory
+          setTimeout(() => {
+            setUnmountLoader(true)
+          }, 1450)
+        }, 300)
       },
       undefined,
       (err) => {
         console.error('Failed to load GLB model:', err)
-        setLoading(false)
+        setModelReady(true)
+        setUnmountLoader(true)
       }
     )
 
-    // 7. Endless ambient horizontal plane revolution loop (pure 60fps spin)
     let animationFrameId
     let lastTime = performance.now()
 
@@ -158,13 +208,13 @@ export default function AsciiSculpture({
 
   return (
     <div className="ascii-sculpture-screensaver">
-      <div className="three-canvas-root" ref={canvasHolderRef} style={{ width: '100%', height: '100%' }} />
+      <div 
+        className={`three-canvas-root ${modelReady ? 'model-visible' : ''}`} 
+        ref={canvasHolderRef} 
+        style={{ width: '100%', height: '100%' }} 
+      />
 
-      {loading && (
-        <div className="ascii-sculpture-loading font-mono">
-          <span>⠋ materializing 3D ASCII geometry...</span>
-        </div>
-      )}
+      {!unmountLoader && <AsciiRainLoader isFading={modelReady} />}
     </div>
   )
 }
