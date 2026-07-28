@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { MailProvider, useMail } from './context/MailContext'
-import { signInWithGoogle, getUserProfile, listMessages, getMessages } from './api/gmail'
+import { getUserProfile, listMessages, getMessages } from './api/gmail'
 import { categorizeEmails } from './api/ai'
 import { categorizeMockEmails } from './utils/mockData'
 
@@ -26,10 +26,9 @@ function AppContent() {
   })
 
   // Handle Google Sign-In
-  const handleSignIn = useCallback(async () => {
+  const handleSignIn = useCallback(async (token) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true })
-      const token = await signInWithGoogle()
       dispatch({ type: 'SET_ACCESS_TOKEN', payload: token })
 
       // Get user profile
