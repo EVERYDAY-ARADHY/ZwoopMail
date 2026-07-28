@@ -238,7 +238,7 @@ export default function EmailView() {
 
         {/* Attachments Section */}
         {loadedAttachments && loadedAttachments.length > 0 && (
-          <div className="email-view-attachments">
+          <div className="email-view-attachments" id="email-attachments-section" style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)', borderRadius: '8px' }}>
             <div className="attachments-section-title font-mono">
               ─── ATTACHMENTS ({loadedAttachments.length}) ───
             </div>

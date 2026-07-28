@@ -10,6 +10,7 @@ import TopBar from './components/Layout/TopBar'
 import EmailList from './components/EmailList/EmailList'
 import EmailView from './components/EmailView/EmailView'
 import Compose from './components/Compose/Compose'
+import FloatingChat from './components/FloatingChat/FloatingChat'
 import TargetCursor from './components/shared/TargetCursor'
 
 import './App.css'
@@ -166,6 +167,8 @@ function AppContent() {
       </main>
       {/* Full screen compose AI overlay */}
       <Compose />
+      {/* Instagram-style floating email DM chat widget */}
+      <FloatingChat />
     </div>
   )
 }

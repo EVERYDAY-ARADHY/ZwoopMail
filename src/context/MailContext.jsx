@@ -3,6 +3,11 @@ import { markAsRead, markAsUnread, archiveMessage, starMessage } from '../api/gm
 
 const MailContext = createContext(null)
 
+const savedTheme = typeof window !== 'undefined' && localStorage.getItem('zwoop_theme') ? localStorage.getItem('zwoop_theme') : 'light'
+if (typeof window !== 'undefined') {
+  document.documentElement.setAttribute('data-theme', savedTheme)
+}
+
 const initialState = {
   user: null,
   accessToken: null,
@@ -21,7 +26,7 @@ const initialState = {
   selectedEmail: null,
   isLoading: false,
   isComposing: false,
-  theme: 'light',
+  theme: savedTheme,
   searchQuery: '',
   error: null,
 }
@@ -206,6 +211,7 @@ export function MailProvider({ children }) {
 
   const toggleTheme = useCallback(() => {
     const newTheme = state.theme === 'light' ? 'dark' : 'light'
+    localStorage.setItem('zwoop_theme', newTheme)
     dispatch({ type: 'SET_THEME', payload: newTheme })
     document.documentElement.setAttribute('data-theme', newTheme)
   }, [state.theme])
