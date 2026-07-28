@@ -27,15 +27,18 @@
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
-  background-color: transparent;
+  width: 4px;
+  background-color: var(--item-stream-color, var(--color-border-strong));
+  opacity: 0.4;
   border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
-  transition: background-color var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .email-item.selected .email-item-indicator,
 .email-item.unread .email-item-indicator {
-  background-color: var(--item-stream-color);
+  background-color: var(--item-stream-color, var(--color-border-strong));
+  opacity: 1;
+  width: 5px;
 }
 
 /* Unread dot */

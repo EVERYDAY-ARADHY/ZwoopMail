@@ -85,12 +85,18 @@ export async function getMessage(accessToken, messageId) {
  */
 export async function getMessages(accessToken, messageIds) {
   const results = []
-  const batchSize = 25
+  const batchSize = 20
   for (let i = 0; i < messageIds.length; i += batchSize) {
     const batch = messageIds.slice(i, i + batchSize)
-    const promises = batch.map((msg) => getMessage(accessToken, msg.id))
+    const promises = batch.map((msg) =>
+      getMessage(accessToken, msg.id).catch((err) => {
+        console.warn(`Failed to fetch message ${msg.id}:`, err)
+        return null
+      })
+    )
     const batchResults = await Promise.all(promises)
-    results.push(...batchResults)
+    results.push(...batchResults.filter(Boolean))
+  }
   return results
 }
 
