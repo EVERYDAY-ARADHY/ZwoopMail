@@ -29,6 +29,11 @@ export default function EmailItem({ email, isSelected, onClick }) {
     promotions: 'var(--stream-promotions)',
   }
 
+  let cleanName = email.senderName || 'Unknown'
+  if (cleanName.includes('@')) {
+    cleanName = cleanName.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  }
+
   return (
     <button
       className={`email-item ${isSelected ? 'selected' : ''} ${email.isUnread ? 'unread' : ''}`}
@@ -44,13 +49,13 @@ export default function EmailItem({ email, isSelected, onClick }) {
       )}
 
       {/* Avatar */}
-      <Avatar name={email.senderName} size={36} />
+      <Avatar name={cleanName} size={36} />
 
       {/* Content */}
       <div className="email-item-content">
         <div className="email-item-header">
-          <span className="email-item-sender">
-            {email.senderName}
+          <span className="email-item-sender" title={email.senderEmail || email.senderName}>
+            {cleanName}
           </span>
           <span className="email-item-date font-mono">
             {formatDate(email.date)}

@@ -7,7 +7,7 @@ import EmptyState from '../shared/EmptyState'
 import './EmailView.css'
 
 export default function EmailView() {
-  const { selectedEmail, accessToken, user, markAsUnreadEmail } = useMail()
+  const { selectedEmail, accessToken, user, markAsUnreadEmail, archiveEmail, toggleStarEmail, toggleCompose } = useMail()
   const [readerMode, setReaderMode] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [processedHtml, setProcessedHtml] = useState('')
@@ -110,10 +110,30 @@ export default function EmailView() {
       {/* Action Bar */}
       <div className="email-view-actions">
         <div className="email-view-actions-left">
-          <Button variant="ghost" size="sm" icon="↩">Reply</Button>
-          <Button variant="ghost" size="sm" icon="↪">Forward</Button>
-          <Button variant="ghost" size="sm" icon="▤">Archive</Button>
-          <Button variant="ghost" size="sm" icon="☆">Star</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="↩"
+            onClick={() => toggleCompose({
+              to: email.senderEmail || '',
+              subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
+              body: `\n\nOn ${new Date(email.date).toLocaleDateString()}, ${email.senderName} wrote:\n> ${(email.bodyText || email.snippet || '').slice(0, 300)}`
+            })}
+          >Reply</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="↪"
+            onClick={() => toggleCompose({
+              to: '',
+              subject: email.subject?.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject || ''}`,
+              body: `---------- Forwarded message ---------\nFrom: ${email.senderName} <${email.senderEmail}>\nDate: ${new Date(email.date).toLocaleString()}\nSubject: ${email.subject}\n\n${(email.bodyText || email.snippet || '').slice(0, 500)}`
+            })}
+          >Forward</Button>
+          <Button variant="ghost" size="sm" icon="▤" onClick={() => archiveEmail(email.id)}>Archive</Button>
+          <Button variant="ghost" size="sm" icon={email.isStarred ? '★' : '☆'} onClick={() => toggleStarEmail(email)}>
+            {email.isStarred ? 'Starred' : 'Star'}
+          </Button>
           <Button variant="ghost" size="sm" icon="✉" onClick={() => markAsUnreadEmail(email.id)}>Unread</Button>
         </div>
         <div className="email-view-actions-right">

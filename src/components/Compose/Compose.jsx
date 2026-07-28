@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMail } from '../../context/MailContext'
 import { sendEmail } from '../../api/gmail'
 import { composeAssist } from '../../api/ai'
@@ -22,6 +22,18 @@ export default function Compose() {
   const [aiLoading, setAiLoading] = useState(false)
   const [activeAiAction, setActiveAiAction] = useState(null)
   const [error, setError] = useState(null)
+
+  useEffect(() => {
+    if (typeof isComposing === 'object' && isComposing !== null) {
+      setTo(isComposing.to || '')
+      setSubject(isComposing.subject || '')
+      setBody(isComposing.body || '')
+    } else if (isComposing === true) {
+      setTo('')
+      setSubject('')
+      setBody('')
+    }
+  }, [isComposing])
 
   if (!isComposing) return null
 

@@ -122,13 +122,17 @@ a:focus,
 
 /* --- Dark Theme (Midnight) --- */
 [data-theme="dark"] {
-  --color-bg: #0f0e0e;
-  --color-surface: #1a1918;
-  --color-text: #f0ede8;
-  --color-text-secondary: rgba(240, 237, 232, 0.55);
-  --color-text-tertiary: rgba(240, 237, 232, 0.35);
-  --color-border: rgba(240, 237, 232, 0.08);
-  --color-border-strong: rgba(240, 237, 232, 0.15);
+  --color-bg: #0d0c0c;
+  --color-surface: #161514;
+  --color-pumice: #22201e;
+  --color-limestone: #161514;
+  --color-text: #f2ede6;
+  --color-text-secondary: rgba(242, 237, 230, 0.65);
+  --color-text-tertiary: rgba(242, 237, 230, 0.45);
+  --color-border: rgba(242, 237, 230, 0.1);
+  --color-border-strong: rgba(242, 237, 230, 0.2);
+  --color-ember-subtle: rgba(252, 80, 0, 0.18);
+  --color-plasma-subtle: rgba(82, 74, 233, 0.2);
 }
 
 /* --- Base Styles --- */

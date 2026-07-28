@@ -192,8 +192,13 @@ function parseGmailMessage(raw) {
 
   // Extract sender name and email
   const senderMatch = from.match(/^(.+?)\s*<(.+?)>$/)
-  const senderName = senderMatch ? senderMatch[1].replace(/"/g, '') : from
-  const senderEmail = senderMatch ? senderMatch[2] : from
+  let senderName = senderMatch ? senderMatch[1].replace(/"/g, '').trim() : from.trim()
+  const senderEmail = senderMatch ? senderMatch[2].trim() : from.trim()
+
+  if (senderName.includes('@')) {
+    const username = senderName.split('@')[0]
+    senderName = username.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  }
 
   // Extract body and attachments
   let bodyHtml = ''
