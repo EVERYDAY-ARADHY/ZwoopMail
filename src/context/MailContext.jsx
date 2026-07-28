@@ -1,4 +1,5 @@
 import { createContext, useContext, useReducer, useCallback } from 'react'
+import { markAsRead, markAsUnread } from '../api/gmail'
 
 const MailContext = createContext(null)
 
@@ -40,6 +41,50 @@ function mailReducer(state, action) {
       return { ...state, activeStream: action.payload, selectedEmail: null }
     case 'SELECT_EMAIL':
       return { ...state, selectedEmail: action.payload }
+    case 'MARK_AS_READ': {
+      const emailId = action.payload
+      const updatedEmails = state.emails.map((e) =>
+        e.id === emailId ? { ...e, isUnread: false } : e
+      )
+      const updatedCategorized = {}
+      Object.keys(state.categorizedEmails).forEach((key) => {
+        updatedCategorized[key] = (state.categorizedEmails[key] || []).map((e) =>
+          e.id === emailId ? { ...e, isUnread: false } : e
+        )
+      })
+      const updatedSelected = state.selectedEmail && state.selectedEmail.id === emailId
+        ? { ...state.selectedEmail, isUnread: false }
+        : state.selectedEmail
+
+      return {
+        ...state,
+        emails: updatedEmails,
+        categorizedEmails: updatedCategorized,
+        selectedEmail: updatedSelected,
+      }
+    }
+    case 'MARK_AS_UNREAD': {
+      const emailId = action.payload
+      const updatedEmails = state.emails.map((e) =>
+        e.id === emailId ? { ...e, isUnread: true } : e
+      )
+      const updatedCategorized = {}
+      Object.keys(state.categorizedEmails).forEach((key) => {
+        updatedCategorized[key] = (state.categorizedEmails[key] || []).map((e) =>
+          e.id === emailId ? { ...e, isUnread: true } : e
+        )
+      })
+      const updatedSelected = state.selectedEmail && state.selectedEmail.id === emailId
+        ? { ...state.selectedEmail, isUnread: true }
+        : state.selectedEmail
+
+      return {
+        ...state,
+        emails: updatedEmails,
+        categorizedEmails: updatedCategorized,
+        selectedEmail: updatedSelected,
+      }
+    }
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload }
     case 'SET_COMPOSING':
@@ -64,9 +109,30 @@ export function MailProvider({ children }) {
     dispatch({ type: 'SET_ACTIVE_STREAM', payload: stream })
   }, [])
 
-  const selectEmail = useCallback((email) => {
+  const selectEmail = useCallback(async (email) => {
     dispatch({ type: 'SELECT_EMAIL', payload: email })
-  }, [])
+    if (email && email.isUnread) {
+      dispatch({ type: 'MARK_AS_READ', payload: email.id })
+      if (state.accessToken) {
+        try {
+          await markAsRead(state.accessToken, email.id)
+        } catch (err) {
+          console.error('Failed to mark email as read in Gmail API:', err)
+        }
+      }
+    }
+  }, [state.accessToken])
+
+  const markAsUnreadEmail = useCallback(async (emailId) => {
+    dispatch({ type: 'MARK_AS_UNREAD', payload: emailId })
+    if (state.accessToken) {
+      try {
+        await markAsUnread(state.accessToken, emailId)
+      } catch (err) {
+        console.error('Failed to mark email as unread in Gmail:', err)
+      }
+    }
+  }, [state.accessToken])
 
   const toggleTheme = useCallback(() => {
     const newTheme = state.theme === 'light' ? 'dark' : 'light'
@@ -89,6 +155,7 @@ export function MailProvider({ children }) {
     dispatch,
     setActiveStream,
     selectEmail,
+    markAsUnreadEmail,
     toggleTheme,
     toggleCompose,
     logout,

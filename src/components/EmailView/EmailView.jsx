@@ -7,7 +7,7 @@ import EmptyState from '../shared/EmptyState'
 import './EmailView.css'
 
 export default function EmailView() {
-  const { selectedEmail, accessToken, user } = useMail()
+  const { selectedEmail, accessToken, user, markAsUnreadEmail } = useMail()
   const [readerMode, setReaderMode] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [processedHtml, setProcessedHtml] = useState('')
@@ -114,6 +114,7 @@ export default function EmailView() {
           <Button variant="ghost" size="sm" icon="↪">Forward</Button>
           <Button variant="ghost" size="sm" icon="▤">Archive</Button>
           <Button variant="ghost" size="sm" icon="☆">Star</Button>
+          <Button variant="ghost" size="sm" icon="✉" onClick={() => markAsUnreadEmail(email.id)}>Unread</Button>
         </div>
         <div className="email-view-actions-right">
           <button

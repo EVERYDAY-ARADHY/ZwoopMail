@@ -174,6 +174,9 @@ export const starMessage = (token, id) =>
 export const markAsRead = (token, id) =>
   modifyMessage(token, id, [], ['UNREAD'])
 
+export const markAsUnread = (token, id) =>
+  modifyMessage(token, id, ['UNREAD'], [])
+
 /**
  * Parse raw Gmail API message into a clean object
  */
