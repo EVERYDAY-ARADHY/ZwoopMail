@@ -302,18 +302,13 @@ export default function FloatingChat() {
                   
                   {/* Truncated Read More Button */}
                   {bubble.isTruncated && (
-                    <div
-                      className="chat-attachment-pill"
+                    <button
+                      className="chat-read-more-icon-btn"
                       onClick={() => setIsExpanded(false)}
-                      title="Read the full email in the main view"
-                      style={{ marginTop: '8px' }}
+                      title="Go to mail"
                     >
-                      <div className="chat-attachment-icon-text">
-                        <span>📖</span>
-                        <span>Read full email</span>
-                      </div>
-                      <span className="chat-attachment-jump">Expand ↗</span>
-                    </div>
+                      ➦
+                    </button>
                   )}
 
                   {/* Interactive Attachment / PDF Shortcut Card */}

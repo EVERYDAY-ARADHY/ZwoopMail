@@ -259,6 +259,24 @@
   text-decoration: none;
 }
 
+.chat-read-more-icon-btn {
+  display: block;
+  background: none;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-lg);
+  margin-top: var(--space-2);
+  margin-left: auto;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.chat-read-more-icon-btn:hover {
+  color: var(--color-ember);
+}
+
 /* Incoming bubble — theme-aware */
 .chat-bubble-row.incoming .chat-bubble {
   background: var(--color-pumice);
