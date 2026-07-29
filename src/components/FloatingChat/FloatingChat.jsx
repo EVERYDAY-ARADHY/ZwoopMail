@@ -191,7 +191,6 @@ export default function FloatingChat() {
           onClick={() => setIsExpanded(true)}
           title={`Open direct message conversation with ${senderName}`}
         >
-          <span className="floating-chat-trigger-icon">💬</span>
           <span className="floating-chat-trigger-status">
             <span>DM: {senderName}</span>
           </span>
