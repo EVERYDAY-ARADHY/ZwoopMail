@@ -97,3 +97,22 @@
   color: var(--color-text);
 }
 
+/* ── Responsive: Mobile ── */
+@media (max-width: 768px) {
+  .email-item {
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-2);
+  }
+
+  .email-item-sender {
+    font-size: 13px;
+  }
+
+  .email-item-subject {
+    font-size: 12px;
+  }
+
+  .email-item-date {
+    font-size: 10px;
+  }
+}

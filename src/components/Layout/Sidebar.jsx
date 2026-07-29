@@ -5,7 +5,7 @@ import './Sidebar.css'
 
 const STREAMS = ['people', 'transactions', 'newsletters', 'notifications', 'promotions']
 
-export default function Sidebar({ emailCounts = {} }) {
+export default function Sidebar({ emailCounts = {}, isOpen = false, onClose }) {
   const { activeStream, setActiveStream, toggleCompose, toggleTheme, theme, user, logout, accessToken } = useMail()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -21,7 +21,7 @@ export default function Sidebar({ emailCounts = {} }) {
   }, [])
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       {/* Logo */}
       <div className="sidebar-logo">
         <span className="sidebar-logo-icon">◉</span>
@@ -45,7 +45,10 @@ export default function Sidebar({ emailCounts = {} }) {
             <button
               key={stream}
               className={`sidebar-stream ${isActive ? 'active' : ''}`}
-              onClick={() => setActiveStream(stream)}
+              onClick={() => {
+                setActiveStream(stream)
+                onClose?.()
+              }}
               style={{ '--stream-color': config.color }}
             >
               <span className="sidebar-stream-icon">{config.icon}</span>
@@ -63,25 +66,37 @@ export default function Sidebar({ emailCounts = {} }) {
         <div className="sidebar-section-label">─── QUICK ─────</div>
         <button
           className={`sidebar-link ${activeStream === 'starred' ? 'active' : ''}`}
-          onClick={() => setActiveStream('starred')}
+          onClick={() => {
+            setActiveStream('starred')
+            onClose?.()
+          }}
         >
           <span>☆</span> Starred
         </button>
         <button
           className={`sidebar-link ${activeStream === 'archived' ? 'active' : ''}`}
-          onClick={() => setActiveStream('archived')}
+          onClick={() => {
+            setActiveStream('archived')
+            onClose?.()
+          }}
         >
           <span>▤</span> Archived
         </button>
         <button
           className={`sidebar-link ${activeStream === 'sent' ? 'active' : ''}`}
-          onClick={() => setActiveStream('sent')}
+          onClick={() => {
+            setActiveStream('sent')
+            onClose?.()
+          }}
         >
           <span>↗</span> Sent
         </button>
         <button
           className={`sidebar-link ${activeStream === 'drafts' ? 'active' : ''}`}
-          onClick={() => setActiveStream('drafts')}
+          onClick={() => {
+            setActiveStream('drafts')
+            onClose?.()
+          }}
         >
           <span>✎</span> Drafts
         </button>

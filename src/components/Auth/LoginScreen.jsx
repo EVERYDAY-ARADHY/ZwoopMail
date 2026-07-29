@@ -57,28 +57,7 @@ function LoginLayout({ isLoading, error, previewEmails, buttonLabel, onButtonCli
           <p className="login-error font-mono">{error}</p>
         )}
 
-        {previewEmails && previewEmails.length > 0 && (
-          <div style={{marginTop:'1rem', textAlign:'left', fontFamily:'monospace', fontSize:'0.75rem', opacity:0.8}}>
-            <p style={{marginBottom:'0.5rem', color:'var(--color-accent, #a0d8ef)'}}>
-              ✓ Auth verified — {previewEmails.length} emails fetched:
-            </p>
-            <ul style={{listStyle:'none', padding:0, margin:0}}>
-              {previewEmails.map((m, i) => (
-                <li key={m.id} style={{
-                  padding:'0.35rem 0.5rem',
-                  marginBottom:'0.25rem',
-                  background:'rgba(255,255,255,0.05)',
-                  borderLeft:'2px solid var(--color-accent, #a0d8ef)',
-                  borderRadius:'2px',
-                  lineHeight:1.4,
-                }}>
-                  <span style={{opacity:0.5}}>{i + 1}. </span>
-                  {m.snippet || '(no snippet)'}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+
 
         <div className="login-credit font-mono">
           ┌─ forked from the chaos of legacy webmail ─┐<br/>

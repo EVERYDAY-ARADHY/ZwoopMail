@@ -1,6 +1,7 @@
 .sidebar {
   width: var(--sidebar-width);
   height: 100vh;
+  height: 100dvh;
   position: fixed;
   left: 0;
   top: 0;
@@ -340,13 +341,15 @@
   text-align: center;
 }
 
-/* Mobile */
+/* ── Mobile: Off-canvas sidebar ── */
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
+    box-shadow: none;
   }
 
   .sidebar.open {
     transform: translateX(0);
+    box-shadow: 8px 0 30px rgba(0, 0, 0, 0.3);
   }
 }

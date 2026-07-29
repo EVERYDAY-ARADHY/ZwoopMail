@@ -115,7 +115,7 @@ export async function getAttachment(accessToken, messageId, attachmentId) {
 /**
  * Send an email
  */
-export async function sendEmail(accessToken, { to, subject, body, cc, bcc }) {
+export async function sendEmail(accessToken, { to, subject, body, cc, bcc, threadId }) {
   const emailLines = [
     `To: ${to}`,
     cc ? `Cc: ${cc}` : '',
@@ -132,13 +132,18 @@ export async function sendEmail(accessToken, { to, subject, body, cc, bcc }) {
     .replace(/\//g, '_')
     .replace(/=+$/, '')
 
+  const payload = { raw: encodedEmail }
+  if (threadId) {
+    payload.threadId = threadId
+  }
+
   const res = await fetch(`${GMAIL_API_BASE}/messages/send`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ raw: encodedEmail }),
+    body: JSON.stringify(payload),
   })
 
   if (!res.ok) throw new Error('Failed to send email')

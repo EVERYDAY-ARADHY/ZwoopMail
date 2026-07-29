@@ -18,8 +18,18 @@ import './App.css'
 function AppContent() {
   const {
     isAuthenticated, dispatch, categorizedEmails,
-    accessToken, isLoading
+    accessToken, isLoading, selectedEmail
   } = useMail()
+
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen(prev => !prev)
+  }, [])
+
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false)
+  }, [])
 
   const [isRestoring, setIsRestoring] = useState(() => {
     return Boolean(
@@ -157,12 +167,20 @@ function AppContent() {
 
   return (
     <div className="app-layout">
-      <Sidebar emailCounts={emailCounts} />
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={closeSidebar} />
+      )}
+      <Sidebar emailCounts={emailCounts} isOpen={sidebarOpen} onClose={closeSidebar} />
       <main className="app-main">
-        <TopBar />
-        <div className="app-content">
-          <EmailList />
-          <EmailView />
+        <TopBar onHamburgerClick={toggleSidebar} />
+        <div className={`app-content ${selectedEmail ? 'has-selected-email' : ''}`}>
+          <div className="app-list-container">
+            <EmailList />
+          </div>
+          <div className="app-view-container">
+            <EmailView />
+          </div>
         </div>
       </main>
       {/* Full screen compose AI overlay */}

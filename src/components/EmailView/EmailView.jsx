@@ -35,7 +35,7 @@ function ShadowHtmlView({ html }) {
 }
 
 export default function EmailView() {
-  const { selectedEmail, accessToken, user, markAsUnreadEmail, archiveEmail, toggleStarEmail, toggleCompose } = useMail()
+  const { selectedEmail, selectEmail, accessToken, user, markAsUnreadEmail, archiveEmail, toggleStarEmail, toggleCompose } = useMail()
   const [readerMode, setReaderMode] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [processedHtml, setProcessedHtml] = useState('')
@@ -138,6 +138,13 @@ export default function EmailView() {
       {/* Action Bar */}
       <div className="email-view-actions">
         <div className="email-view-actions-left">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="←"
+            onClick={() => selectEmail(null)}
+            className="mobile-back-btn"
+          >Back</Button>
           <Button
             variant="ghost"
             size="sm"

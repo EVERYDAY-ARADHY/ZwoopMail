@@ -87,12 +87,14 @@
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
   background-color: var(--color-surface);
+  gap: var(--space-2);
 }
 
 .email-view-actions-left {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  flex-wrap: wrap;
 }
 
 .email-view-reader-toggle {
@@ -104,12 +106,17 @@
   padding: 4px 12px;
   cursor: pointer;
   transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
 .email-view-reader-toggle.active {
   color: var(--color-ember);
   border-color: var(--color-ember);
   background-color: var(--color-ember-subtle);
+}
+
+.mobile-back-btn {
+  display: none !important;
 }
 
 /* Header */
@@ -239,20 +246,6 @@
   height: auto;
 }
 
-@media (max-width: 1024px) {
-  .email-view-header {
-    padding: var(--space-6);
-  }
-
-  .email-view-body {
-    padding: var(--space-4) var(--space-6) var(--space-8);
-  }
-
-  .email-view-subject {
-    font-size: var(--text-xl);
-  }
-}
-
 /* Attachments Section */
 .email-view-attachments {
   margin-top: var(--space-8);
@@ -355,4 +348,90 @@
 .attachment-loading {
   font-size: 10px;
   color: var(--color-text-tertiary);
+}
+
+/* ── Responsive: Tablet ── */
+@media (max-width: 1024px) {
+  .email-view-header {
+    padding: var(--space-6);
+  }
+
+  .email-view-body {
+    padding: var(--space-4) var(--space-6) var(--space-8);
+  }
+
+  .email-view-subject {
+    font-size: var(--text-xl);
+  }
+
+  .email-view-actions {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .attachments-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+/* ── Responsive: Mobile ── */
+@media (max-width: 768px) {
+  .email-view {
+    min-height: 0;
+  }
+
+  .email-view-header {
+    padding: var(--space-4);
+  }
+
+  .email-view-body {
+    padding: var(--space-3) var(--space-4) var(--space-6);
+  }
+
+  .email-view-subject {
+    font-size: var(--text-lg);
+    margin-bottom: var(--space-4);
+  }
+
+  .email-view-meta {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .email-view-date {
+    font-size: 10px;
+    width: 100%;
+    margin-top: var(--space-1);
+  }
+
+  .email-view-actions {
+    padding: var(--space-2) var(--space-3);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-back-btn {
+    display: flex !important;
+  }
+
+  .email-view-actions-left {
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+  }
+
+  .email-view-reader {
+    font-size: var(--text-sm);
+    line-height: 1.65;
+  }
+
+  .attachments-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attachment-image-preview {
+    height: 120px;
+  }
+
+  .attachment-file-icon {
+    height: 80px;
+  }
 }

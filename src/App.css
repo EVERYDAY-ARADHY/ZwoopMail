@@ -5,7 +5,9 @@
 .app-layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--color-bg);
+  position: relative;
 }
 
 .app-main {
@@ -14,6 +16,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -23,15 +26,68 @@
   overflow: hidden;
 }
 
-/* ── Responsive ── */
+.app-list-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-view-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+/* ── Sidebar Overlay (mobile) ── */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 99;
+  animation: fadeInOverlay 0.2s ease forwards;
+}
+
+[data-theme="dark"] .sidebar-overlay {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Responsive: Tablet (≤1024px) ── */
+@media (max-width: 1024px) {
+  .app-content {
+    flex-direction: column;
+  }
+}
+
+/* ── Responsive: Mobile (≤768px) ── */
 @media (max-width: 768px) {
   .app-main {
     margin-left: 0;
   }
-}
 
-@media (max-width: 1024px) {
-  .app-content {
-    flex-direction: column;
+  .app-list-container {
+    width: 100%;
+    flex: 1;
+  }
+
+  .app-view-container {
+    display: none;
+  }
+
+  .app-content.has-selected-email .app-list-container {
+    display: none;
+  }
+
+  .app-content.has-selected-email .app-view-container {
+    display: flex;
+    width: 100%;
+    flex: 1;
   }
 }

@@ -4,6 +4,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-6);
+  gap: var(--space-3);
   background-color: var(--color-surface);
   border-bottom: 1.5px solid var(--color-border);
   position: sticky;
@@ -11,6 +12,48 @@
   z-index: 50;
 }
 
+/* Hamburger Menu Button — hidden on desktop */
+.topbar-hamburger {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 7px;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.topbar-hamburger:hover {
+  background-color: var(--color-border);
+  border-color: var(--color-border-strong);
+}
+
+.topbar-hamburger:active {
+  background-color: var(--color-ember-subtle);
+  border-color: var(--color-ember);
+}
+
+.hamburger-line {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background-color: var(--color-text);
+  border-radius: 2px;
+  transition: all var(--transition-fast);
+}
+
+.topbar-hamburger:hover .hamburger-line {
+  background-color: var(--color-ember);
+}
+
+/* Search */
 .topbar-search {
   display: flex;
   align-items: center;
@@ -43,6 +86,7 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-regular);
   color: var(--color-text);
+  min-width: 0;
 }
 
 .topbar-search-input::placeholder {
@@ -69,6 +113,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  flex-shrink: 0;
 }
 
 .topbar-shortcut {
@@ -78,4 +123,47 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   user-select: none;
+}
+
+/* ── Responsive: Tablet ── */
+@media (max-width: 1024px) {
+  .topbar {
+    padding: 0 var(--space-4);
+  }
+
+  .topbar-search {
+    max-width: 100%;
+  }
+
+  .topbar-shortcut {
+    display: none;
+  }
+}
+
+/* ── Responsive: Mobile ── */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 0 var(--space-3);
+    height: 56px;
+  }
+
+  .topbar-hamburger {
+    display: flex;
+  }
+
+  .topbar-search {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .topbar-search-icon {
+    font-size: var(--text-base);
+  }
+
+  .topbar-search-input {
+    font-size: 13px;
+  }
+
+  .topbar-shortcut {
+    display: none;
+  }
 }

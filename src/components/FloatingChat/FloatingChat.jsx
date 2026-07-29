@@ -162,6 +162,7 @@ export default function FloatingChat() {
             ? selectedEmail.subject
             : `Re: ${selectedEmail.subject || ''}`,
           body: textToSend,
+          threadId: selectedEmail.threadId,
         })
       } catch (err) {
         console.error('Failed to send DM via Gmail:', err)
@@ -189,6 +190,50 @@ export default function FloatingChat() {
       </div>
     )
   }
+
+  // Helper to safely render text with clickable links and clean up file attachments
+  const renderTextWithLinks = (text) => {
+    if (!text) return null;
+    
+    // Clean up angle brackets around URLs (common in plain text emails)
+    const cleanText = text.replace(/<(https?:\/\/[^>]+)>/g, ' $1 ');
+
+    // Match filename followed by a URL (e.g., "image.jpg https://...")
+    const fileUrlRegex = /([a-zA-Z0-9_-]+\.[a-zA-Z0-9]{2,4})\s+(https?:\/\/[^\s]+)/g;
+    
+    const parts = cleanText.split(fileUrlRegex);
+    const elements = [];
+    
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 3 === 0) {
+        // Normal text block, check for standalone URLs
+        const subParts = parts[i].split(/(https?:\/\/[^\s]+)/g);
+        subParts.forEach((subPart, j) => {
+          if (subPart.match(/^https?:\/\//)) {
+            elements.push(
+              <a key={`link-${i}-${j}`} href={subPart} target="_blank" rel="noopener noreferrer">
+                {subPart.length > 35 ? subPart.substring(0, 35) + '...' : subPart}
+              </a>
+            );
+          } else if (subPart) {
+            elements.push(<span key={`text-${i}-${j}`}>{subPart}</span>);
+          }
+        });
+      } else if (i % 3 === 1) {
+        // Filename
+        const filename = parts[i];
+        const url = parts[i + 1];
+        elements.push(
+          <a key={`file-${i}`} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--color-border)', padding: '2px 8px', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold' }}>
+            📎 {filename}
+          </a>
+        );
+        i++; // Skip the URL part
+      }
+    }
+    
+    return elements;
+  };
 
   // Expanded DM Chat Window
   return (
@@ -243,7 +288,9 @@ export default function FloatingChat() {
 
               <div className="chat-bubble-content">
                 <div className="chat-bubble">
-                  <div>{bubble.text}</div>
+                  <div className="chat-bubble-text-content">
+                    {renderTextWithLinks(bubble.text)}
+                  </div>
 
                   {/* Interactive Attachment / PDF Shortcut Card */}
                   {bubble.sender === 'them' && bubble.hasAttachment && (

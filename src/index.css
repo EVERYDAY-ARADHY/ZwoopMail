@@ -53,6 +53,7 @@ a:focus,
   --color-text-tertiary: rgba(7, 6, 7, 0.35);
   --color-border: rgba(7, 6, 7, 0.1);
   --color-border-strong: rgba(7, 6, 7, 0.2);
+  --color-surface-elevated: #eeedea;
 
   /* Stream Colors */
   --stream-people: #fc5000;
@@ -131,6 +132,7 @@ a:focus,
   --color-text-tertiary: rgba(242, 237, 230, 0.45);
   --color-border: rgba(242, 237, 230, 0.1);
   --color-border-strong: rgba(242, 237, 230, 0.2);
+  --color-surface-elevated: #1e1d1b;
   --color-ember-subtle: rgba(252, 80, 0, 0.18);
   --color-plasma-subtle: rgba(82, 74, 233, 0.2);
 }

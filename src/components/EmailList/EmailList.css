@@ -45,10 +45,35 @@
   overflow-y: auto;
 }
 
+/* ── Responsive: Tablet ── */
 @media (max-width: 1024px) {
   .email-list {
     width: 100%;
     min-width: 0;
     border-right: none;
+  }
+
+  .email-list-header {
+    padding: var(--space-4);
+  }
+
+  .email-list-stream-name {
+    font-size: var(--text-lg);
+  }
+}
+
+/* ── Responsive: Mobile ── */
+@media (max-width: 768px) {
+
+  .email-list-header {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .email-list-stream-icon {
+    font-size: var(--text-lg);
+  }
+
+  .email-list-stream-name {
+    font-size: var(--text-base);
   }
 }
