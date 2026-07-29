@@ -7,7 +7,7 @@ import { STREAM_CONFIG } from '../shared/StreamBadge'
 import './EmailList.css'
 
 export default function EmailList() {
-  const { categorizedEmails, emails, archivedEmails, activeStream, selectEmail, selectedEmail, isLoading } = useMail()
+  const { categorizedEmails, emails, archivedEmails, activeStream, selectEmail, selectedEmail, isLoading, searchQuery } = useMail()
 
   let displayEmails = []
   if (activeStream === 'starred') {
@@ -20,6 +20,16 @@ export default function EmailList() {
     displayEmails = []
   } else {
     displayEmails = categorizedEmails[activeStream] || []
+  }
+
+  if (searchQuery && searchQuery.trim().length > 0) {
+    const q = searchQuery.toLowerCase().trim()
+    displayEmails = displayEmails.filter(e => 
+      (e.senderName && e.senderName.toLowerCase().includes(q)) ||
+      (e.senderEmail && e.senderEmail.toLowerCase().includes(q)) ||
+      (e.subject && e.subject.toLowerCase().includes(q)) ||
+      (e.snippet && e.snippet.toLowerCase().includes(q))
+    )
   }
 
   const config = STREAM_CONFIG[activeStream] || { label: activeStream.toUpperCase(), icon: '◉' }

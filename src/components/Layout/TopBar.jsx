@@ -39,7 +39,11 @@ export default function TopBar({ onSearch, onHamburgerClick }) {
           className="topbar-search-input"
           placeholder="search emails..."
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={(e) => {
+            setInputValue(e.target.value)
+            dispatch({ type: 'SET_SEARCH', payload: e.target.value })
+            onSearch?.(e.target.value)
+          }}
           spellCheck={false}
         />
         {inputValue && (
