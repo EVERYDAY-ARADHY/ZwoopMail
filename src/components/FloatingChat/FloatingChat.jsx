@@ -60,7 +60,13 @@ export default function FloatingChat() {
       const parts = rawText.split(replySplitRegex)
 
       // The primary newest message in this email
-      const latestText = (parts[0] || '').trim()
+      let latestText = (parts[0] || '').trim()
+      
+      // Truncate excessively long marketing emails or newsletters for the DM view
+      if (latestText.length > 300) {
+        latestText = latestText.substring(0, 300) + '...\n\n[Read full email for more]';
+      }
+
       if (latestText) {
         bubbles.push({
           id: `${e.id}-primary`,
