@@ -61,10 +61,13 @@ export default function FloatingChat() {
 
       // The primary newest message in this email
       let latestText = (parts[0] || '').trim()
+      latestText = latestText.replace(/[\r\n]+/g, '\n').trim()
       
+      let isTruncated = false
       // Truncate excessively long marketing emails or newsletters for the DM view
-      if (latestText.length > 300) {
-        latestText = latestText.substring(0, 300) + '...\n\n[Read full email for more]';
+      if (latestText.length > 250) {
+        latestText = latestText.substring(0, 250) + '...'
+        isTruncated = true
       }
 
       if (latestText) {
@@ -75,6 +78,7 @@ export default function FloatingChat() {
           senderEmail,
           text: latestText,
           timestamp,
+          isTruncated,
           hasAttachment:
             (e.attachments && e.attachments.length > 0) ||
             /\b(pdf|attachment|document|file|credentials)\b/i.test(e.subject || latestText),
@@ -189,7 +193,6 @@ export default function FloatingChat() {
         >
           <span className="floating-chat-trigger-icon">💬</span>
           <span className="floating-chat-trigger-status">
-            <span className="pulse-dot" />
             <span>DM: {senderName}</span>
           </span>
         </button>
@@ -252,7 +255,6 @@ export default function FloatingChat() {
             <div className="chat-header-info">
               <span className="chat-header-name">
                 {senderName}
-                <span className="pulse-dot" title="Active Thread" />
               </span>
               <span className="chat-header-sub">{senderEmail}</span>
             </div>
@@ -297,6 +299,22 @@ export default function FloatingChat() {
                   <div className="chat-bubble-text-content">
                     {renderTextWithLinks(bubble.text)}
                   </div>
+                  
+                  {/* Truncated Read More Button */}
+                  {bubble.isTruncated && (
+                    <div
+                      className="chat-attachment-pill"
+                      onClick={() => setIsExpanded(false)}
+                      title="Read the full email in the main view"
+                      style={{ marginTop: '8px' }}
+                    >
+                      <div className="chat-attachment-icon-text">
+                        <span>📖</span>
+                        <span>Read full email</span>
+                      </div>
+                      <span className="chat-attachment-jump">Expand ↗</span>
+                    </div>
+                  )}
 
                   {/* Interactive Attachment / PDF Shortcut Card */}
                   {bubble.sender === 'them' && bubble.hasAttachment && (
