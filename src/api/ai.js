@@ -1,34 +1,27 @@
 /*
- * AI API Wrapper for ZwoopMail
+ * ZwoopMail AI Engine
  *
- * Priority order:
- *  1. Azure Phi-4    (primary  — enterprise, no free-tier caps)
- *  2. Groq Llama     (fallback — if VITE_GROQ_API_KEY is set)
- *  3. Gemini Flash   (fallback — free tier, rate-limited)
- *
- * Features:
- *  - 429 / 5xx retry with exponential back-off
- *  - localStorage caching (30-min TTL) for categories & priority summary
- *  - Heuristic categorizer as zero-cost final fallback
+ * Provider priority:  Azure Phi-4 → Groq → Gemini Flash
+ * AI errors are CONTAINED — they NEVER bubble up to break mail loading.
+ * Mail loading (App.jsx) uses heuristic categorization as instant fallback.
  */
 
 // ─── Credentials ──────────────────────────────────────────────────────────────
 
-const AZURE_PHI4_KEY      = import.meta.env.VITE_AZURE_PHI4_API_KEY || ''
-const AZURE_PHI4_ENDPOINT = import.meta.env.VITE_AZURE_PHI4_ENDPOINT || ''
-const AZURE_API_VERSION   = '2024-12-01-preview'
+const AZURE_KEY      = import.meta.env.VITE_AZURE_PHI4_API_KEY || ''
+const AZURE_ENDPOINT = import.meta.env.VITE_AZURE_PHI4_ENDPOINT || ''
+const AZURE_VERSION  = '2024-12-01-preview'
 
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || ''
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
+const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY || ''
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
-const GEMINI_API_KEY      = import.meta.env.VITE_GEMINI_API_KEY || ''
-const GEMINI_PRIMARY_URL  = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
+const GEMINI_KEY          = import.meta.env.VITE_GEMINI_API_KEY || ''
+const GEMINI_URL          = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
 const GEMINI_FALLBACK_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent'
 
-// Cache TTL: 30 minutes
-const CACHE_TTL = 30 * 60 * 1000
+// ─── Cache (30-min TTL) ───────────────────────────────────────────────────────
 
-// ─── Cache Helpers ────────────────────────────────────────────────────────────
+const CACHE_TTL = 30 * 60 * 1000
 
 function cacheGet(key) {
   try {
@@ -44,85 +37,113 @@ function cacheSet(key, data) {
   try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })) } catch {}
 }
 
+// ─── Message Normalizer ───────────────────────────────────────────────────────
+// Converts any input (string | array of {role,content}) into a flat messages array
+
+function toMessages(systemPrompt, userMessage) {
+  const msgs = []
+  if (systemPrompt) msgs.push({ role: 'system', content: systemPrompt })
+  if (Array.isArray(userMessage)) {
+    userMessage.forEach(m => {
+      if (m && typeof m.content === 'string') msgs.push({ role: m.role || 'user', content: m.content })
+    })
+  } else if (typeof userMessage === 'string' && userMessage.trim()) {
+    msgs.push({ role: 'user', content: userMessage })
+  }
+  // Ensure at least one user message
+  if (!msgs.some(m => m.role === 'user')) msgs.push({ role: 'user', content: 'Hello' })
+  return msgs
+}
+
 // ─── Retry Helper ─────────────────────────────────────────────────────────────
 
-async function fetchWithRetry(url, options, maxRetries = 3) {
+async function fetchWithRetry(url, options, maxRetries = 2) {
   let delay = 3000
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const res = await fetch(url, options)
-    if (res.status !== 429 && res.status < 500) return res
-    if (attempt === maxRetries) return res
-    const retryAfter = res.headers.get('Retry-After')
-    const waitMs = retryAfter ? parseFloat(retryAfter) * 1000 : delay
-    console.warn(`[AI] ${res.status} — retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt + 1}/${maxRetries})`)
-    await new Promise(r => setTimeout(r, waitMs))
-    delay = Math.min(delay * 2, 20000)
+    try {
+      const res = await fetch(url, options)
+      if (res.status !== 429 && res.status < 500) return res
+      if (attempt === maxRetries) return res
+      const after = res.headers.get('Retry-After')
+      const wait = after ? parseFloat(after) * 1000 : delay
+      console.warn(`[AI] ${res.status} — retrying in ${Math.round(wait / 1000)}s`)
+      await new Promise(r => setTimeout(r, wait))
+      delay = Math.min(delay * 2, 15000)
+    } catch (err) {
+      if (attempt === maxRetries) throw err
+      await new Promise(r => setTimeout(r, delay))
+      delay = Math.min(delay * 2, 15000)
+    }
   }
 }
 
-// ─── Azure Phi-4 Call ─────────────────────────────────────────────────────────
+// ─── Azure Phi-4 ─────────────────────────────────────────────────────────────
 
-async function callAzurePhi4(systemPrompt, messages) {
-  if (!AZURE_PHI4_KEY || !AZURE_PHI4_ENDPOINT) return null
+async function callAzure(systemPrompt, userMessage) {
+  if (!AZURE_KEY || !AZURE_ENDPOINT) return null
 
-  const url = `${AZURE_PHI4_ENDPOINT}/chat/completions?api-version=${AZURE_API_VERSION}`
+  const messages = toMessages(systemPrompt, userMessage)
+  const url = `${AZURE_ENDPOINT}/chat/completions?api-version=${AZURE_VERSION}`
 
-  let formattedMessages = []
-  if (systemPrompt) formattedMessages.push({ role: 'system', content: systemPrompt })
-
-  if (Array.isArray(messages)) {
-    messages.forEach(m => formattedMessages.push({ role: m.role === 'assistant' ? 'assistant' : m.role, content: m.content }))
-  } else {
-    formattedMessages.push({ role: 'user', content: String(messages) })
-  }
-
-  let response
   try {
-    response = await fetchWithRetry(url, {
+    const res = await fetchWithRetry(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'api-key': AZURE_PHI4_KEY },
-      body: JSON.stringify({ messages: formattedMessages, max_tokens: 1024, temperature: 0.4 }),
+      headers: { 'Content-Type': 'application/json', 'api-key': AZURE_KEY },
+      body: JSON.stringify({ messages, max_tokens: 1024, temperature: 0.4 }),
     })
-  } catch (netErr) {
-    console.warn('[Azure Phi-4] Network error:', netErr.message)
+    if (!res || !res.ok) {
+      const err = await res?.text().catch(() => '')
+      console.warn(`[Azure Phi-4] HTTP ${res?.status}:`, err.slice(0, 200))
+      return null
+    }
+    const data = await res.json()
+    return data.choices?.[0]?.message?.content || null
+  } catch (err) {
+    console.warn('[Azure Phi-4] Network error:', err.message)
     return null
   }
-
-  if (!response || !response.ok) {
-    const status = response?.status
-    let errText = ''
-    try { errText = await response.text() } catch {}
-    console.warn(`[Azure Phi-4] HTTP ${status}:`, errText)
-    return null
-  }
-
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content || null
 }
 
-// ─── Gemini Call ─────────────────────────────────────────────────────────────
+// ─── Groq ─────────────────────────────────────────────────────────────────────
 
-async function callGeminiAPI(systemPrompt, userMessages, generationConfig = {}) {
-  if (!GEMINI_API_KEY) return null
+async function callGroq(systemPrompt, userMessage) {
+  if (!GROQ_KEY) return null
 
-  let contents = []
-  if (Array.isArray(userMessages)) {
-    contents = userMessages.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }))
-  } else {
-    contents = [{ role: 'user', parts: [{ text: String(userMessages) }] }]
+  const messages = toMessages(systemPrompt, userMessage)
+
+  try {
+    const res = await fetchWithRetry(GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.3, max_tokens: 1024 }),
+    })
+    if (!res || !res.ok) return null
+    const data = await res.json()
+    return data.choices?.[0]?.message?.content || null
+  } catch (err) {
+    console.warn('[Groq] Error:', err.message)
+    return null
   }
+}
+
+// ─── Gemini ───────────────────────────────────────────────────────────────────
+
+async function callGemini(systemPrompt, userMessage) {
+  if (!GEMINI_KEY) return null
+
+  const messages = toMessages(null, userMessage) // Gemini uses system_instruction separately
+  const contents = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }))
 
   const payload = {
     system_instruction: systemPrompt ? { parts: [{ text: systemPrompt }] } : undefined,
     contents,
-    generationConfig: { temperature: 0.4, maxOutputTokens: 1024, ...generationConfig },
+    generationConfig: { temperature: 0.4, maxOutputTokens: 1024 },
   }
 
-  const tryModel = async (url) => {
-    const res = await fetchWithRetry(`${url}?key=${GEMINI_API_KEY}`, {
+  const tryUrl = async (url) => {
+    const res = await fetchWithRetry(`${url}?key=${GEMINI_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -130,159 +151,89 @@ async function callGeminiAPI(systemPrompt, userMessages, generationConfig = {}) 
     return res
   }
 
-  let response
   try {
-    response = await tryModel(GEMINI_PRIMARY_URL)
-    if (response && !response.ok && [404, 400].includes(response.status)) {
-      response = await tryModel(GEMINI_FALLBACK_URL)
+    let res = await tryUrl(GEMINI_URL)
+    if (res && !res.ok && [404, 400].includes(res.status)) res = await tryUrl(GEMINI_FALLBACK_URL)
+    if (!res || !res.ok) {
+      const err = await res?.json().catch(() => ({}))
+      throw {
+        isApiError: true,
+        status: res?.status,
+        title: `Gemini API Error (HTTP ${res?.status})`,
+        message: err?.error?.message || 'Gemini request failed',
+      }
     }
-  } catch (netErr) {
-    throw { isApiError: true, status: 0, title: 'Network Error', message: netErr.message }
+    const data = await res.json()
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!text) throw { isApiError: true, status: 200, title: 'Empty Response', message: 'Gemini returned no content.' }
+    return text
+  } catch (err) {
+    if (err.isApiError) throw err
+    console.warn('[Gemini] Network error:', err.message)
+    return null
   }
-
-  if (!response || !response.ok) {
-    let errorDetail = ''
-    try { const e = await response.json(); errorDetail = e?.error?.message || '' } catch {}
-    throw {
-      isApiError: true,
-      status: response?.status,
-      title: `Gemini API Error (HTTP ${response?.status})`,
-      message: errorDetail || 'Gemini request failed',
-    }
-  }
-
-  const data = await response.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) throw { isApiError: true, status: 200, title: 'Empty Response', message: 'Gemini returned no content.' }
-  return text
 }
 
-// ─── Groq Call ────────────────────────────────────────────────────────────────
-
-async function callGroq(systemPrompt, userMessage) {
-  if (!GROQ_API_KEY) return null
-  const msgs = []
-  if (systemPrompt) msgs.push({ role: 'system', content: systemPrompt })
-  if (Array.isArray(userMessage)) msgs.push(...userMessage)
-  else msgs.push({ role: 'user', content: String(userMessage) })
-
-  const res = await fetchWithRetry(GROQ_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_API_KEY}` },
-    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: msgs, temperature: 0.3, max_tokens: 1024 }),
-  })
-  if (!res || !res.ok) return null
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content || null
-}
-
-// ─── Smart Dispatcher — Azure → Groq → Gemini ─────────────────────────────────
+// ─── Smart Dispatcher: Azure → Groq → Gemini ─────────────────────────────────
 
 async function aiComplete(systemPrompt, userMessage) {
-  // 1. Try Azure Phi-4 (primary)
-  if (AZURE_PHI4_KEY && AZURE_PHI4_ENDPOINT) {
-    const azureResult = await callAzurePhi4(systemPrompt, userMessage)
-    if (azureResult) return azureResult
-    console.warn('[AI] Azure Phi-4 failed, trying next provider...')
-  }
+  // 1. Azure Phi-4 (primary)
+  const azureResult = await callAzure(systemPrompt, userMessage)
+  if (azureResult) return azureResult
 
-  // 2. Try Groq
-  if (GROQ_API_KEY) {
-    const groqResult = await callGroq(systemPrompt, userMessage)
-    if (groqResult) return groqResult
-    console.warn('[AI] Groq failed, trying Gemini...')
-  }
+  // 2. Groq (secondary)
+  const groqResult = await callGroq(systemPrompt, userMessage)
+  if (groqResult) return groqResult
 
-  // 3. Try Gemini
-  return callGeminiAPI(systemPrompt, userMessage)
+  // 3. Gemini (tertiary — throws structured errors for UI display)
+  return callGemini(systemPrompt, userMessage)
 }
 
-// ─── Exported Features ────────────────────────────────────────────────────────
+// ─── Exported: AI Chat ────────────────────────────────────────────────────────
 
 /**
- * Two-stage retrieval chat — massively reduces token usage.
- *
- * Stage 1: Send only email metadata (id, subject, from, timestamp) to Phi-4.
- *          Phi-4 returns a JSON array of relevant email IDs for the query.
- * Stage 2: Send full content ONLY for the filtered IDs + conversation history.
- *          Phi-4 generates the final response with full context.
- *
- * Token savings vs naive approach: ~85% reduction on large inboxes.
- *
- * Also exported as chatWithGemini for backwards compatibility.
+ * Main conversational AI chat.
+ * Errors thrown here are caught by AIChatModal and shown ONLY inside the chat UI.
+ * Mail loading is completely unaffected.
  */
 export async function chatWithAI({ messages, emails = [], selectedEmail = null, user = null }) {
-  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || ''
-
-  // ── Stage 1: Metadata filter ─────────────────────────────────────────────
-  // Only send: id, subject, from, timestamp — no body, no snippet
-  let relevantEmails = emails.slice(0, 10) // default if stage 1 fails
-
-  if (emails.length > 0) {
-    const metadataList = emails.slice(0, 50).map(e =>
-      `{"id":"${e.id}","subject":"${(e.subject || '').replace(/"/g, '')}","from":"${e.senderName || e.senderEmail || ''}","ts":"${e.date ? new Date(e.date).toLocaleDateString() : 'recent'}","unread":${!!e.isUnread}}`
-    ).join('\n')
-
-    const filterPrompt = `You are an email relevance filter. Given a user query and a list of email metadata, return ONLY a JSON array of the IDs of emails relevant to the query. Max 5 IDs.
-Respond with ONLY the JSON array, example: ["id1","id2"]
-If no emails are specifically relevant, return the 5 most recent: pick the first 5 ids.
-
-User query: "${lastUserMsg}"
-
-Email metadata (id, subject, from, timestamp, unread):
-${metadataList}`
-
-    try {
-      const stage1Raw = await aiComplete(filterPrompt, [])
-      const idMatch = stage1Raw.match(/\[\s*"[^"]*"[^\]]*\]/)
-      if (idMatch) {
-        const ids = JSON.parse(idMatch[0])
-        const filtered = ids.map(id => emails.find(e => e.id === id)).filter(Boolean)
-        if (filtered.length > 0) relevantEmails = filtered
-      }
-    } catch (e) {
-      console.warn('[AI Stage 1] Filter failed, using top 5:', e.message)
-      relevantEmails = emails.slice(0, 5)
-    }
-  }
-
-  // ── Stage 2: Full response with filtered context ──────────────────────────
-  const emailCtx = relevantEmails.map(e =>
-    `[ID:${e.id}]\nFrom: ${e.senderName} <${e.senderEmail}>\nSubject: ${e.subject}\nDate: ${e.date ? new Date(e.date).toLocaleString() : 'recent'}\nUnread: ${e.isUnread ? 'Yes' : 'No'} | Starred: ${e.isStarred ? 'Yes' : 'No'}\nSnippet: ${(e.snippet || '').slice(0, 200)}`
-  ).join('\n---\n')
+  const emailCtx = emails.slice(0, 15).map(e =>
+    `[ID:${e.id}] From:${e.senderName} <${e.senderEmail}> | Subject:"${e.subject}" | Date:${e.date ? new Date(e.date).toLocaleDateString() : 'recent'} | Unread:${e.isUnread ? 'Yes' : 'No'} | Snippet:"${(e.snippet || '').slice(0, 120)}"`
+  ).join('\n')
 
   const activeEmail = selectedEmail
-    ? `Currently opened:\n[ID:${selectedEmail.id}] From:${selectedEmail.senderName} | Subject:${selectedEmail.subject}\nBody: ${(selectedEmail.bodyText || selectedEmail.snippet || '').slice(0, 500)}`
+    ? `Opened email:\n[ID:${selectedEmail.id}] From:${selectedEmail.senderName} | Subject:${selectedEmail.subject}\nBody: ${(selectedEmail.bodyText || selectedEmail.snippet || '').slice(0, 400)}`
     : 'No email currently opened.'
 
   const systemPrompt = `You are Zwoop AI, a smart inbox assistant inside ZwoopMail.
 User: ${user?.emailAddress || 'User'}
 
-RELEVANT EMAILS (filtered for this query — ${relevantEmails.length} of ${emails.length} total):
+INBOX (up to 15 emails):
 ${emailCtx || 'No emails loaded.'}
 
 OPENED EMAIL:
 ${activeEmail}
 
-WEBSITE COMMANDS — append JSON at end of response to trigger real UI actions:
-- Compose:  [[COMMAND: {"action":"compose","to":"email@example.com","subject":"Subject","body":"Body text"}]]
-- Reply:    [[COMMAND: {"action":"reply","emailId":"ID","to":"email","subject":"Re: Subject","body":"Body"}]]
+WEBSITE COMMANDS — include at the END of your response to trigger UI actions:
+- Compose:  [[COMMAND: {"action":"compose","to":"email@example.com","subject":"Subject","body":"Body"}]]
+- Reply:    [[COMMAND: {"action":"reply","emailId":"REAL_ID","to":"email","subject":"Re: Subject","body":"Body"}]]
 - Filter:   [[COMMAND: {"action":"filter","category":"people"}]]
-- Select:   [[COMMAND: {"action":"select","emailId":"ID"}]]
-- Archive:  [[COMMAND: {"action":"archive","emailId":"ID"}]]
-- Star:     [[COMMAND: {"action":"star","emailId":"ID"}]]
+- Select:   [[COMMAND: {"action":"select","emailId":"REAL_ID"}]]
+- Archive:  [[COMMAND: {"action":"archive","emailId":"REAL_ID"}]]
+- Star:     [[COMMAND: {"action":"star","emailId":"REAL_ID"}]]
 
-IMPORTANT: Always output commands as [[COMMAND: {...}]] with double square brackets. Be concise.`
+Rules: Be concise. Use actual email IDs from the inbox list above. Only include commands when an action is explicitly requested.`
 
-  return aiComplete(systemPrompt, messages)
+  const result = await aiComplete(systemPrompt, messages)
+  if (!result) throw { isApiError: true, status: 503, title: 'All AI providers unavailable', message: 'Azure Phi-4, Groq, and Gemini all failed to respond. Check your API keys in .env.' }
+  return result
 }
 
-// Backwards-compat alias — AIChatModal still imports this name
+// Backwards-compat alias
 export const chatWithGemini = chatWithAI
 
-/**
- * Priority summary — cached 30 min to avoid repeated API calls.
- */
+// ─── Exported: Priority Summary ───────────────────────────────────────────────
+
 export async function generatePrioritySummary(emails = []) {
   if (!emails.length) return []
 
@@ -295,21 +246,24 @@ export async function generatePrioritySummary(emails = []) {
   ).join('\n')
 
   const systemPrompt = `Identify up to 3 high-priority emails (urgent actions, deadlines, OTPs, direct questions, payments).
-Return a JSON array inside a json code block. Keys per item: id, senderName, subject, urgency (High/Medium/Urgent), summary (1 sentence), suggestedAction.
-ONLY the JSON array, no other text.`
+Return a JSON array. Keys per item: id, senderName, subject, urgency (High/Medium/Urgent), summary (1 sentence), suggestedAction.
+ONLY the raw JSON array, nothing else.`
 
   try {
     const raw = await aiComplete(systemPrompt, sample)
-    const match = raw.match(/\[\s*\{[\s\S]*\}\s*\]/)
-    if (match) {
-      const result = JSON.parse(match[0])
-      cacheSet(cacheKey, result)
-      return result
+    if (raw) {
+      const match = raw.match(/\[\s*\{[\s\S]*\}\s*\]/)
+      if (match) {
+        const result = JSON.parse(match[0])
+        cacheSet(cacheKey, result)
+        return result
+      }
     }
   } catch (err) {
-    console.warn('[AI] Priority summary failed, using heuristics:', err?.title || err?.message || err)
+    console.warn('[AI] Priority summary failed, using heuristics')
   }
 
+  // Heuristic fallback — always works, no API needed
   return emails.slice(0, 3).map(e => ({
     id: e.id,
     senderName: e.senderName || 'Sender',
@@ -320,12 +274,14 @@ ONLY the JSON array, no other text.`
   }))
 }
 
-/**
- * Categorize emails — cached per session, heuristics for overflow.
- */
+// ─── Exported: Email Categorization ──────────────────────────────────────────
+// GUARANTEED to return an array the same length as input — NEVER throws.
+// App.jsx mail loading depends on this being bulletproof.
+
 export async function categorizeEmails(emails) {
   if (!emails.length) return []
 
+  // Cache check
   const cacheKey = `zwoop_categories_${emails.slice(0, 10).map(e => e.id).join('_')}`
   const cached = cacheGet(cacheKey)
   if (cached && cached.length === emails.length) {
@@ -333,93 +289,92 @@ export async function categorizeEmails(emails) {
     return cached
   }
 
+  // Always produce heuristic result first as guaranteed baseline
+  const heuristicResult = emails.map(e => heuristicCategorize(e))
+
+  // Try to enhance first 20 with AI (completely optional, silently falls back)
   const AI_BATCH = 20
   const aiBatch = emails.slice(0, AI_BATCH)
-  const heuristicBatch = emails.slice(AI_BATCH)
 
   const summaries = aiBatch.map((e, i) =>
-    `${i}. From:${e.senderName} <${e.senderEmail}> | Subject:${e.subject} | Snippet:${e.snippet?.slice(0, 80)}`
+    `${i}. From:${e.senderName} | Subject:${e.subject} | Snippet:${(e.snippet || '').slice(0, 60)}`
   ).join('\n')
 
-  const systemPrompt = `For each email below, output ONLY one category name per line (matching the index order):
+  const systemPrompt = `Categorize each email. Output exactly one category per line in order. Valid categories ONLY:
 people | transactions | newsletters | notifications | promotions
 
-One word per line. No numbers, no punctuation. Nothing else.`
-
-  let aiCategories = []
-  try {
-    const result = await aiComplete(systemPrompt, summaries)
-    const valid = ['people', 'transactions', 'newsletters', 'notifications', 'promotions']
-    aiCategories = result.trim().split('\n').map((line, i) => {
-      const cleaned = line.replace(/^\d+[.)]\s*/, '').trim().toLowerCase()
-      return valid.includes(cleaned) ? cleaned : heuristicCategorize(aiBatch[i] || {})
-    })
-  } catch (err) {
-    console.warn('[AI] Categorization failed, full heuristics:', err?.title || err?.message || err)
-    aiCategories = aiBatch.map(e => heuristicCategorize(e))
-  }
-
-  while (aiCategories.length < aiBatch.length) {
-    aiCategories.push(heuristicCategorize(aiBatch[aiCategories.length]))
-  }
-
-  const allCategories = [...aiCategories, ...heuristicBatch.map(e => heuristicCategorize(e))]
-  cacheSet(cacheKey, allCategories)
-  return allCategories
-}
-
-/**
- * Detect urgent emails needing immediate attention.
- */
-export async function detectUrgent(emails) {
-  if (!emails.length) return []
-  const summaries = emails.slice(0, 8).map((e, i) =>
-    `${i}. From:${e.senderName} | Subject:${e.subject} | Snippet:${e.snippet?.slice(0, 100)}`
-  ).join('\n')
-
-  const systemPrompt = `For each email, reply "urgent" or "normal". One word per line.
-Urgent = direct question needing reply, deadline today/tomorrow, OTP/verification, action required, payment due.`
+${aiBatch.length} emails below. Output exactly ${aiBatch.length} lines.`
 
   try {
     const result = await aiComplete(systemPrompt, summaries)
-    return result.trim().split('\n').map(line => line.trim().toLowerCase() === 'urgent')
+    if (result) {
+      const valid = ['people', 'transactions', 'newsletters', 'notifications', 'promotions']
+      const lines = result.trim().split('\n')
+      lines.forEach((line, i) => {
+        if (i >= aiBatch.length) return
+        const cleaned = line.replace(/^\d+[.)]\s*/, '').trim().toLowerCase()
+        if (valid.includes(cleaned)) heuristicResult[i] = cleaned
+      })
+      cacheSet(cacheKey, heuristicResult)
+    }
   } catch {
-    return emails.slice(0, 8).map(() => false)
+    // AI failed — heuristicResult already set, just log silently
+    console.warn('[AI] Categorization AI unavailable, using heuristics for all emails')
   }
+
+  return heuristicResult
 }
 
-/**
- * AI-powered compose tone/style assist.
- */
+// ─── Exported: Compose Assist ─────────────────────────────────────────────────
+
 export async function composeAssist(text, action) {
   const instructions = {
     professional: 'Rewrite in a professional, formal business tone. Keep the core message.',
     casual:       'Rewrite in a casual, warm, conversational tone.',
     shorter:      'Make significantly shorter and more concise. Remove fluff.',
     fix_grammar:  'Fix all grammar, spelling, and punctuation. Preserve the original tone.',
-    friendly:     'Rewrite in a warm, friendly, genuine tone.',
+    friendly:     'Rewrite in a warm, friendly, genuine tone with appropriate pleasantries.',
     urgent:       'Rewrite to professionally convey urgency and immediate importance.',
   }
-
   const systemPrompt = `You are an email writing assistant. ${instructions[action] || instructions.professional}
-Return ONLY the rewritten email text. No explanations, no quotes, no markdown formatting.`
+Return ONLY the rewritten email text. No explanations, no quotes, no markdown.`
 
-  return aiComplete(systemPrompt, text)
+  const result = await aiComplete(systemPrompt, text)
+  if (!result) throw new Error('AI Assist unavailable. Check API keys in .env.')
+  return result
 }
 
-/**
- * Convert natural language search into Gmail query syntax.
- */
+// ─── Exported: Search Query Parser ───────────────────────────────────────────
+
 export async function parseSearchQuery(naturalQuery) {
-  const systemPrompt = `Convert natural language to a Gmail search query.
-Examples: "emails from John about project" → "from:john subject:project" | "unread from last week" → "is:unread newer_than:7d"
-Return ONLY the Gmail query string. Nothing else.`
-
-  try { return await aiComplete(systemPrompt, naturalQuery) }
-  catch { return naturalQuery }
+  const systemPrompt = `Convert natural language to Gmail search query syntax.
+Examples: "emails from John about project" → "from:john subject:project" | "unread last week" → "is:unread newer_than:7d"
+Return ONLY the Gmail query string.`
+  try {
+    const result = await aiComplete(systemPrompt, naturalQuery)
+    return result || naturalQuery
+  } catch {
+    return naturalQuery
+  }
 }
 
-// ─── Heuristic Categorizer ────────────────────────────────────────────────────
+// ─── Exported: Detect Urgent ─────────────────────────────────────────────────
+
+export async function detectUrgent(emails) {
+  if (!emails.length) return []
+  const summaries = emails.slice(0, 8).map((e, i) =>
+    `${i}. From:${e.senderName} | Subject:${e.subject} | Snippet:${(e.snippet || '').slice(0, 80)}`
+  ).join('\n')
+  const systemPrompt = `For each email, reply "urgent" or "normal". One word per line.
+Urgent = direct question requiring reply, deadline, OTP, action required, payment.`
+  try {
+    const result = await aiComplete(systemPrompt, summaries)
+    if (result) return result.trim().split('\n').map(l => l.trim().toLowerCase() === 'urgent')
+  } catch {}
+  return emails.slice(0, 8).map(() => false)
+}
+
+// ─── Heuristic Categorizer (zero-cost, no API) ───────────────────────────────
 
 function heuristicCategorize(email) {
   const combined = [email.senderEmail, email.subject, email.snippet].join(' ').toLowerCase()

@@ -13,7 +13,7 @@ export default function AIChatModal({ isOpen, onClose }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Hello! I am **Zwoop AI** powered by Gemini. How can I assist you with your inbox today?",
+      content: "Hello! I'm **Zwoop AI** powered by Azure Phi-4. How can I help with your inbox today?",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
   ])
