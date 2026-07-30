@@ -62,12 +62,13 @@ export default function AIChatModal({ isOpen, onClose }) {
     setMessages(prev => [...prev, { id: assistantMessageId, sender: 'assistant', text: '' }])
 
     try {
-      await streamChatWithAI(updatedMessages, emails.slice(0, 50), (chunk) => {
+      await streamChatWithAI(updatedMessages, emails.slice(0, 5), (chunk) => {
         setMessages(prev => {
           const newMessages = [...prev]
-          const lastMsg = newMessages[newMessages.length - 1]
+          const lastIndex = newMessages.length - 1
+          const lastMsg = newMessages[lastIndex]
           if (lastMsg && lastMsg.id === assistantMessageId) {
-            lastMsg.text += chunk
+            newMessages[lastIndex] = { ...lastMsg, text: lastMsg.text + chunk }
           }
           return newMessages
         })
