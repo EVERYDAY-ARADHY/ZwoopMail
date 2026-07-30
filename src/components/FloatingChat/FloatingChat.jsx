@@ -5,7 +5,7 @@ import Avatar from '../shared/Avatar'
 import './FloatingChat.css'
 
 export default function FloatingChat() {
-  const { selectedEmail, accessToken, user, emails } = useMail()
+  const { selectedEmail, accessToken, user, emails, selectEmail } = useMail()
   const [isExpanded, setIsExpanded] = useState(false)
   const [inputMessage, setInputMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
@@ -89,6 +89,7 @@ export default function FloatingChat() {
         
         bubbles.push({
           id: m.id,
+          rawEmail: m,
           sender: isMe ? 'me' : 'them',
           senderName: isMe ? 'Me' : (m.senderName || senderName),
           senderEmail: m.senderEmail,
@@ -301,7 +302,12 @@ export default function FloatingChat() {
                   {bubble.isTruncated && (
                     <button
                       className="chat-read-more-icon-btn"
-                      onClick={() => setIsExpanded(false)}
+                      onClick={() => {
+                        if (bubble.rawEmail) {
+                          selectEmail(bubble.rawEmail)
+                        }
+                        setIsExpanded(false)
+                      }}
                       title="Go to mail"
                     >
                       ➦
