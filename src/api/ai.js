@@ -6,13 +6,14 @@
 const PROXY_URL = '/api/ai'
 
 // ─── Retry Helper ────────────────────────────────────────────────────────────
-async function fetchWithRetry(url, options, maxRetries = 3) {
+async function fetchWithRetry(url, options, maxRetries = 2) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const res = await fetch(url, options)
     if (res.status === 429 && attempt < maxRetries) {
-      const retryAfter = res.headers.get('retry-after')
-      const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : 3000 * Math.pow(2, attempt)
-      console.warn(`Rate limited. Retry in ${waitMs / 1000}s (${attempt + 1}/${maxRetries})`)
+      // Azure often sends long Retry-After headers (e.g. 60s). 
+      // Waiting 60s freezes the UI. We will cap our wait to 4 seconds max.
+      const waitMs = Math.min(2000 * (attempt + 1), 4000)
+      console.warn(`Rate limited. Fast-retrying in ${waitMs / 1000}s (${attempt + 1}/${maxRetries})`)
       await new Promise(r => setTimeout(r, waitMs))
       continue
     }
