@@ -101,6 +101,18 @@ export async function getMessages(accessToken, messageIds) {
 }
 
 /**
+ * Fetch a full thread by threadId
+ */
+export async function getThread(accessToken, threadId) {
+  const res = await fetch(`${GMAIL_API_BASE}/threads/${threadId}?format=full`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) throw new Error(`Failed to fetch thread ${threadId}`)
+  const data = await res.json()
+  return data.messages ? data.messages.map(parseGmailMessage) : []
+}
+
+/**
  * Fetch attachment or inline image binary data by message ID and attachment ID
  */
 export async function getAttachment(accessToken, messageId, attachmentId) {
@@ -185,7 +197,7 @@ export const markAsUnread = (token, id) =>
 /**
  * Parse raw Gmail API message into a clean object
  */
-function parseGmailMessage(raw) {
+export function parseGmailMessage(raw) {
   const headers = raw.payload?.headers || []
   const getHeader = (name) =>
     headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value || ''

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMail } from '../../context/MailContext'
-import { sendEmail } from '../../api/gmail'
+import { sendEmail, getThread } from '../../api/gmail'
 import Avatar from '../shared/Avatar'
 import './FloatingChat.css'
 
@@ -10,6 +10,8 @@ export default function FloatingChat() {
   const [inputMessage, setInputMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [localReplies, setLocalReplies] = useState({}) // mapped by senderEmail
+  const [threadMessages, setThreadMessages] = useState([])
+  const [isLoadingThread, setIsLoadingThread] = useState(false)
   const messagesEndRef = useRef(null)
 
   // When selected email changes, if it's from a person or active stream, expand or refresh chat
@@ -19,15 +21,34 @@ export default function FloatingChat() {
       setIsExpanded(true)
     } else {
       setIsExpanded(false)
+      setThreadMessages([])
     }
   }, [selectedEmail?.id])
+
+  // Fetch full thread when chat is expanded
+  useEffect(() => {
+    if (isExpanded && selectedEmail?.threadId && accessToken) {
+      const fetchFullThread = async () => {
+        setIsLoadingThread(true)
+        try {
+          const messages = await getThread(accessToken, selectedEmail.threadId)
+          setThreadMessages(messages)
+        } catch (err) {
+          console.error('Failed to fetch thread for DM:', err)
+        } finally {
+          setIsLoadingThread(false)
+        }
+      }
+      fetchFullThread()
+    }
+  }, [isExpanded, selectedEmail?.threadId, accessToken])
 
   // Scroll chat to bottom whenever messages update or window expands
   useEffect(() => {
     if (isExpanded && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [isExpanded, selectedEmail?.id, localReplies])
+  }, [isExpanded, selectedEmail?.id, localReplies, threadMessages])
 
   if (!selectedEmail) return null
 
@@ -35,73 +56,50 @@ export default function FloatingChat() {
   const senderName = selectedEmail.senderName || senderEmail.split('@')[0]
   const currentReplies = localReplies[senderEmail] || []
 
-  // Gather conversational history with this contact from loaded emails
-  const contactEmails = (emails || []).filter(
-    (e) => e.senderEmail === senderEmail || e.to === senderEmail
-  ).sort((a, b) => new Date(a.date) - new Date(b.date))
-
-  if (contactEmails.length === 0 && selectedEmail) {
-    contactEmails.push(selectedEmail)
-  }
-
-  // Parse out cluttered quotation lines ("On Fri, Jul 24... wrote:") into clean bubbles
+  // Parse actual thread messages into bubbles
   const parseThreadIntoBubbles = () => {
     const bubbles = []
 
-    contactEmails.forEach((e) => {
-      const rawText = e.bodyText || e.snippet || ''
-      const timestamp = new Date(e.date || Date.now()).toLocaleTimeString([], {
+    // If threadMessages are loaded, use them. Otherwise fallback to just the selected email.
+    const messagesToParse = threadMessages.length > 0 ? threadMessages : (selectedEmail ? [selectedEmail] : [])
+
+    messagesToParse.forEach((m) => {
+      const rawText = m.bodyText || m.snippet || ''
+      const timestamp = new Date(m.date || Date.now()).toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
       })
 
-      // Try splitting standard Gmail quote blocks
+      // Strip standard Gmail quote blocks from the bottom of THIS specific message
       const replySplitRegex = /(?:On\s+[A-Za-z]{3},\s+[A-Za-z]{3}\s+\d+,\s+\d{4}\s+at\s+.*?\s+wrote:)/i
       const parts = rawText.split(replySplitRegex)
 
-      // The primary newest message in this email
       let latestText = (parts[0] || '').trim()
       latestText = latestText.replace(/[\r\n]+/g, '\n').trim()
       
       let isTruncated = false
-      // Truncate excessively long marketing emails or newsletters for the DM view
       if (latestText.length > 250) {
         latestText = latestText.substring(0, 250) + '...'
         isTruncated = true
       }
 
       if (latestText) {
+        // Determine if message is from the logged-in user
+        const isMe = user && user.emailAddress && m.from && m.from.toLowerCase().includes(user.emailAddress.toLowerCase())
+        
         bubbles.push({
-          id: `${e.id}-primary`,
-          sender: 'them',
-          senderName,
-          senderEmail,
+          id: m.id,
+          sender: isMe ? 'me' : 'them',
+          senderName: isMe ? 'Me' : (m.senderName || senderName),
+          senderEmail: m.senderEmail,
           text: latestText,
           timestamp,
           isTruncated,
           hasAttachment:
-            (e.attachments && e.attachments.length > 0) ||
-            /\b(pdf|attachment|document|file|credentials)\b/i.test(e.subject || latestText),
-          attachmentCount: e.attachments ? e.attachments.length : 1,
+            (m.attachments && m.attachments.length > 0) ||
+            /\b(pdf|attachment|document|file|credentials)\b/i.test(m.subject || latestText),
+          attachmentCount: m.attachments ? m.attachments.length : 0,
         })
-      }
-
-      // If there was a quoted reply underneath, render it as an historical exchange bubble
-      if (parts.length > 1 && parts[1].trim()) {
-        const quotedText = parts[1]
-          .replace(/^>\s*/gm, '') // strip leading markdown quotes
-          .trim()
-          .slice(0, 350) // keep concise
-
-        if (quotedText) {
-          // If the quotation references "you" or previous reply, put it before or after appropriately
-          bubbles.unshift({
-            id: `${e.id}-quote`,
-            sender: 'me',
-            text: quotedText,
-            timestamp: 'Earlier',
-          })
-        }
       }
     })
 
@@ -279,7 +277,7 @@ export default function FloatingChat() {
         {/* Message Thread History */}
         <div className="chat-messages-area">
           <div className="chat-date-separator">
-            <span>INSTANT MESSAGING THREAD</span>
+            <span>{isLoadingThread ? 'LOADING THREAD...' : 'INSTANT MESSAGING THREAD'}</span>
           </div>
 
           {threadBubbles.map((bubble) => (
