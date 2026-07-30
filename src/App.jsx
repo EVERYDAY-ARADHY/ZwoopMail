@@ -79,7 +79,21 @@ function AppContent() {
       // Fetch emails (increased to 100 for richer categorized streams)
       try {
         const messageList = await listMessages(token, 100)
-        const emails = await getMessages(token, messageList)
+        let emails = await getMessages(token, messageList)
+
+        // Group emails by threadId (keeping only the most recent message per thread)
+        const uniqueEmails = []
+        const seenThreads = new Set()
+        for (const email of emails) {
+          if (email && email.threadId && !seenThreads.has(email.threadId)) {
+            seenThreads.add(email.threadId)
+            uniqueEmails.push(email)
+          } else if (email && !email.threadId) {
+            uniqueEmails.push(email)
+          }
+        }
+        emails = uniqueEmails
+
         dispatch({ type: 'SET_EMAILS', payload: emails })
 
         // AI categorize
