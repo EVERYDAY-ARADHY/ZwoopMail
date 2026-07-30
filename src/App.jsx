@@ -78,9 +78,9 @@ function AppContent() {
       localStorage.setItem('zwoop_access_token', token)
       localStorage.removeItem('zwoop_demo_mode')
 
-      // Fetch emails (increased to 100 for richer categorized streams)
+      // Fetch emails (limited to 5 to stay within phi-mini rate limits)
       try {
-        const messageList = await listMessages(token, 100)
+        const messageList = await listMessages(token, 5)
         let emails = await getMessages(token, messageList)
 
         // Group emails by threadId (keeping only the most recent message per thread)
