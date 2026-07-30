@@ -71,7 +71,7 @@ export default function FloatingChat() {
       })
 
       // Strip standard Gmail quote blocks from the bottom of THIS specific message
-      const replySplitRegex = /(?:On\s+[A-Za-z]{3},\s+[A-Za-z]{3}\s+\d+,\s+\d{4}\s+at\s+.*?\s+wrote:)/i
+      const replySplitRegex = /(?:On\s+.*?\s+wrote:|-------- Original Message --------|________________________________)/i
       const parts = rawText.split(replySplitRegex)
 
       let latestText = (parts[0] || '').trim()

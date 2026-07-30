@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMail } from '../../context/MailContext'
-import { getAttachment } from '../../api/gmail'
+import { getAttachment, getThread } from '../../api/gmail'
 import Avatar from '../shared/Avatar'
 import Button from '../shared/Button'
 import EmptyState from '../shared/EmptyState'
@@ -34,12 +34,62 @@ function ShadowHtmlView({ html }) {
   return <div ref={containerRef} className="email-view-html" style={{ width: '100%', overflow: 'hidden' }} />
 }
 
+function EmailMessageStep({ message, user }) {
+  const text = message.bodyText || message.snippet || ''
+  const replySplitRegex = /(?:On\s+.*?\s+wrote:|-------- Original Message --------|________________________________)/i
+  const parts = text.split(replySplitRegex)
+  let latestText = (parts[0] || '').trim()
+  latestText = latestText.replace(/[\r\n]+/g, '\n').trim()
+
+  const isMe = user && user.emailAddress && message.from && message.from.toLowerCase().includes(user.emailAddress.toLowerCase())
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', maxWidth: '85%', flexDirection: isMe ? 'row-reverse' : 'row' }}>
+        {!isMe && <Avatar name={message.senderName} size={28} />}
+        <div className={`dm-bubble ${isMe ? 'is-me' : ''}`} style={{
+          background: isMe ? 'var(--color-ember, #fc5000)' : 'var(--color-surface, #ffffff)',
+          color: isMe ? '#ffffff' : 'var(--color-text)',
+          padding: '12px 16px',
+          borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+          boxShadow: isMe ? '0 4px 14px rgba(252, 80, 0, 0.2)' : '0 2px 10px rgba(0,0,0,0.05)',
+          border: isMe ? 'none' : '1px solid var(--color-border)',
+          fontSize: '0.95em',
+          lineHeight: '1.5',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word'
+        }}>
+          {latestText}
+        </div>
+      </div>
+      <div style={{ 
+        fontSize: '0.75em', 
+        color: 'var(--color-text-tertiary)', 
+        marginTop: '4px',
+        padding: isMe ? '0 8px 0 0' : '0 0 0 36px'
+      }}>
+        {new Date(message.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </div>
+    </div>
+  )
+}
+
 export default function EmailView() {
   const { selectedEmail, selectEmail, accessToken, user, markAsUnreadEmail, archiveEmail, toggleStarEmail, toggleCompose } = useMail()
-  const [readerMode, setReaderMode] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [processedHtml, setProcessedHtml] = useState('')
   const [loadedAttachments, setLoadedAttachments] = useState([])
+  const [threadMessages, setThreadMessages] = useState([])
+
+  useEffect(() => {
+    if (selectedEmail && selectedEmail.threadId && accessToken) {
+      getThread(accessToken, selectedEmail.threadId)
+        .then(setThreadMessages)
+        .catch(console.error)
+    } else {
+      setThreadMessages([])
+    }
+  }, [selectedEmail?.threadId, accessToken])
 
   useEffect(() => {
     if (!selectedEmail) {
@@ -171,118 +221,107 @@ export default function EmailView() {
           </Button>
           <Button variant="ghost" size="sm" icon="✉" onClick={() => markAsUnreadEmail(email.id)}>Unread</Button>
         </div>
-        <div className="email-view-actions-right">
-          <button
-            className={`email-view-reader-toggle font-mono ${readerMode ? 'active' : ''}`}
-            onClick={() => setReaderMode(!readerMode)}
-            title="Toggle reader mode"
-          >
-            {readerMode ? '◉ reader' : '○ reader'}
-          </button>
-        </div>
       </div>
 
-      {/* Header */}
-      <div className="email-view-header">
-        <h1 className="email-view-subject">{email.subject || '(no subject)'}</h1>
-
-        <div className="email-view-meta">
-          <Avatar name={email.senderName} size={40} />
-          <div className="email-view-meta-info">
-            <div className="email-view-sender-row">
-              <span className="email-view-sender">{email.senderName}</span>
-              <button
-                className="email-view-details-btn font-mono"
-                onClick={() => setDetailsOpen(!detailsOpen)}
-                title="Toggle sender details"
-              >
-                {detailsOpen ? '▲' : '▼'}
-              </button>
-            </div>
-          </div>
-          <div className="email-view-date font-mono">
-            {formatFullDate(email.date)}
-          </div>
-        </div>
-
-        {detailsOpen && (
-          <div className="email-view-details-popup font-mono animate-fade-in">
-            <div className="detail-row">
-              <span className="detail-label">from:</span>
-              <span className="detail-value">{email.senderName} &lt;{email.senderEmail}&gt;</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">to:</span>
-              <span className="detail-value">{email.to || (user ? user.emailAddress : 'me')}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">date:</span>
-              <span className="detail-value">{formatFullDate(email.date)}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">subject:</span>
-              <span className="detail-value">{email.subject || '(no subject)'}</span>
-            </div>
-          </div>
-        )}
+      {/* Simplified Subject Header */}
+      <div style={{ padding: '0 32px 16px', borderBottom: '1px solid var(--color-border)', marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '1.2em', margin: 0, fontWeight: 'bold' }}>{email.subject || '(no subject)'}</h1>
       </div>
 
-      {/* Body */}
-      <div className="email-view-body">
-        {readerMode ? (
-          <div className="email-view-reader">
-            {email.bodyText || email.snippet}
-          </div>
-        ) : (
-          processedHtml ? (
-            <ShadowHtmlView html={processedHtml} />
-          ) : (
-            <div className="email-view-reader">
-              {email.bodyText || email.snippet}
+      {/* Body as Chat */}
+      <div className="email-view-body" style={{ padding: '0 32px 32px' }}>
+        {/* Sleek Chat Stepper for Previous Messages */}
+        {(() => {
+          const currentIndex = threadMessages.findIndex(m => m.id === email.id)
+          const olderMessages = currentIndex > 0 ? threadMessages.slice(0, currentIndex) : []
+          if (olderMessages.length > 0) {
+            return (
+              <div className="email-thread-stepper" style={{ display: 'flex', flexDirection: 'column' }}>
+                {olderMessages.map(m => <EmailMessageStep key={m.id} message={m} user={user} />)}
+              </div>
+            )
+          }
+          return null
+        })()}
+
+        {/* Latest Message as a Chat Bubble */}
+        {(() => {
+          const isLatestMe = user && user.emailAddress && email.from && email.from.toLowerCase().includes(user.emailAddress.toLowerCase())
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: isLatestMe ? 'flex-end' : 'flex-start', marginTop: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', width: '100%', flexDirection: isLatestMe ? 'row-reverse' : 'row' }}>
+                {!isLatestMe && <Avatar name={email.senderName} size={28} />}
+                <div className={`dm-bubble ${isLatestMe ? 'is-me' : ''}`} style={{
+                  background: isLatestMe ? 'var(--color-ember, #fc5000)' : 'var(--color-surface, #ffffff)',
+                  color: isLatestMe ? '#ffffff' : 'var(--color-text)',
+                  padding: '16px 20px',
+                  borderRadius: isLatestMe ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                  width: '100%',
+                  maxWidth: isLatestMe ? '85%' : '90%',
+                  boxShadow: isLatestMe ? '0 4px 14px rgba(252, 80, 0, 0.2)' : '0 2px 10px rgba(0,0,0,0.05)',
+                  border: isLatestMe ? 'none' : '1px solid var(--color-border)'
+                }}>
+                  {processedHtml ? (
+                    <ShadowHtmlView html={processedHtml} />
+                  ) : (
+                    <div className="email-view-reader" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit' }}>
+                      {email.bodyText || email.snippet}
+                    </div>
+                  )}
+
+                  {/* Attachments Section inside the bubble */}
+                  {loadedAttachments && loadedAttachments.length > 0 && (
+                    <div className="email-view-attachments" id="email-attachments-section" style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)', borderRadius: '8px', marginTop: '16px', borderTop: isLatestMe ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--color-border)', paddingTop: '16px' }}>
+                      <div className="attachments-section-title font-mono" style={{ color: isLatestMe ? 'rgba(255,255,255,0.8)' : 'inherit' }}>
+                        ─── ATTACHMENTS ({loadedAttachments.length}) ───
+                      </div>
+                      <div className="attachments-grid">
+                        {loadedAttachments.map((att, idx) => {
+                          const isImage = att.mimeType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(att.filename)
+                          const dataUrl = att.data ? `data:${att.mimeType};base64,${att.data}` : null
+
+                          return (
+                            <div key={idx} className="attachment-card" style={{ background: isLatestMe ? 'rgba(0,0,0,0.1)' : 'var(--color-bg)' }}>
+                              {isImage && dataUrl ? (
+                                <div className="attachment-image-preview">
+                                  <img src={dataUrl} alt={att.filename} />
+                                </div>
+                              ) : (
+                                <div className="attachment-file-icon font-mono">
+                                  {att.filename ? att.filename.split('.').pop().toUpperCase() : 'FILE'}
+                                </div>
+                              )}
+                              <div className="attachment-footer">
+                                <span className="attachment-name font-mono" title={att.filename} style={{ color: isLatestMe ? '#fff' : 'inherit' }}>
+                                  {att.filename}
+                                </span>
+                                {dataUrl ? (
+                                  <a href={dataUrl} download={att.filename} className="attachment-download-btn font-mono" style={{ color: isLatestMe ? '#fff' : 'inherit' }}>
+                                    [↓ save]
+                                  </a>
+                                ) : (
+                                  <span className="attachment-loading font-mono">loading...</span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{ 
+                fontSize: '0.75em', 
+                color: 'var(--color-text-tertiary)', 
+                marginTop: '4px',
+                padding: isLatestMe ? '0 8px 0 0' : '0 0 0 36px'
+              }}>
+                {new Date(email.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
           )
-        )}
-
-        {/* Attachments Section */}
-        {loadedAttachments && loadedAttachments.length > 0 && (
-          <div className="email-view-attachments" id="email-attachments-section" style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)', borderRadius: '8px' }}>
-            <div className="attachments-section-title font-mono">
-              ─── ATTACHMENTS ({loadedAttachments.length}) ───
-            </div>
-            <div className="attachments-grid">
-              {loadedAttachments.map((att, idx) => {
-                const isImage = att.mimeType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(att.filename)
-                const dataUrl = att.data ? `data:${att.mimeType};base64,${att.data}` : null
-
-                return (
-                  <div key={idx} className="attachment-card">
-                    {isImage && dataUrl ? (
-                      <div className="attachment-image-preview">
-                        <img src={dataUrl} alt={att.filename} />
-                      </div>
-                    ) : (
-                      <div className="attachment-file-icon font-mono">
-                        {att.filename ? att.filename.split('.').pop().toUpperCase() : 'FILE'}
-                      </div>
-                    )}
-                    <div className="attachment-footer">
-                      <span className="attachment-name font-mono" title={att.filename}>
-                        {att.filename}
-                      </span>
-                      {dataUrl ? (
-                        <a href={dataUrl} download={att.filename} className="attachment-download-btn font-mono">
-                          [↓ save]
-                        </a>
-                      ) : (
-                        <span className="attachment-loading font-mono">loading...</span>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
+        })()}
       </div>
     </div>
   )

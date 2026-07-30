@@ -297,3 +297,10 @@ body {
 .stagger-children > *:nth-child(8) { animation-delay: 350ms; }
 .stagger-children > *:nth-child(9) { animation-delay: 400ms; }
 .stagger-children > *:nth-child(10) { animation-delay: 450ms; }
+
+.dm-bubble.is-me ::selection,
+.chat-bubble-row.outgoing .chat-bubble ::selection {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
