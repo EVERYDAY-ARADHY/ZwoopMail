@@ -11,6 +11,7 @@ import EmailList from './components/EmailList/EmailList'
 import EmailView from './components/EmailView/EmailView'
 import Compose from './components/Compose/Compose'
 import FloatingChat from './components/FloatingChat/FloatingChat'
+import AIChatModal from './components/AIChat/AIChatModal'
 import TargetCursor from './components/shared/TargetCursor'
 
 import './App.css'
@@ -22,6 +23,7 @@ function AppContent() {
   } = useMail()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [aiModalOpen, setAiModalOpen] = useState(false)
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen(prev => !prev)
@@ -187,7 +189,7 @@ function AppContent() {
       )}
       <Sidebar emailCounts={emailCounts} isOpen={sidebarOpen} onClose={closeSidebar} />
       <main className="app-main">
-        <TopBar onHamburgerClick={toggleSidebar} />
+        <TopBar onHamburgerClick={toggleSidebar} onOpenAI={() => setAiModalOpen(true)} />
         <div className={`app-content ${selectedEmail ? 'has-selected-email' : ''}`}>
           <div className="app-list-container">
             <EmailList />
@@ -201,6 +203,9 @@ function AppContent() {
       <Compose />
       {/* Instagram-style floating email DM chat widget */}
       <FloatingChat />
+      
+      {/* AI Chat & Summary Modal */}
+      <AIChatModal isOpen={aiModalOpen} onClose={() => setAiModalOpen(false)} />
     </div>
   )
 }

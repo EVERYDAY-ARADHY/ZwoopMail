@@ -125,6 +125,32 @@
   user-select: none;
 }
 
+.topbar-ask-ai-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--color-bg-card, #ffffff);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.topbar-ask-ai-btn:hover {
+  border-color: var(--color-ember, #fc5000);
+  box-shadow: 0 2px 8px rgba(252, 80, 0, 0.1);
+}
+
+.topbar-ask-ai-btn .ai-sparkle {
+  color: var(--color-ember, #fc5000);
+  font-size: 14px;
+}
+
 /* ── Responsive: Tablet ── */
 @media (max-width: 1024px) {
   .topbar {

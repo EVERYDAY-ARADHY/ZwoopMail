@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMail } from '../../context/MailContext'
 import './TopBar.css'
 
-export default function TopBar({ onSearch, onHamburgerClick }) {
+export default function TopBar({ onSearch, onHamburgerClick, onOpenAI }) {
   const { searchQuery, dispatch } = useMail()
   const [inputValue, setInputValue] = useState('')
 
@@ -54,6 +54,13 @@ export default function TopBar({ onSearch, onHamburgerClick }) {
       </form>
 
       <div className="topbar-actions">
+        <button 
+          className="topbar-ask-ai-btn"
+          onClick={onOpenAI}
+          title="Open Zwoop Intelligence"
+        >
+          <span className="ai-sparkle">✦</span> Ask AI
+        </button>
         <span className="topbar-shortcut font-mono">⌘K</span>
       </div>
     </header>

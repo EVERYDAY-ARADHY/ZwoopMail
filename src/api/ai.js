@@ -1,68 +1,169 @@
 /*
- * AI API Wrapper
- * Handles email categorization and compose assistance via Groq or Gemini.
+ * AI API Wrapper — Azure Phi-4 (phi-mini)
+ * Uses serverless proxy (/api/ai) in production (Vercel) for CORS + key security.
+ * Falls back to direct Azure call in local dev if VITE_ keys are present.
  */
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || ''
+// ─── Configuration ──────────────────────────────────────────────────────────
+const AZURE_API_KEY = import.meta.env.VITE_AZURE_PHI4_API_KEY || ''
+const AZURE_ENDPOINT = import.meta.env.VITE_AZURE_PHI4_ENDPOINT || ''
+const AZURE_DIRECT_URL = AZURE_ENDPOINT
+  ? `${AZURE_ENDPOINT}/chat/completions?api-version=2024-12-01-preview`
+  : ''
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
+const IS_PRODUCTION = import.meta.env.PROD
+const PROXY_URL = '/api/ai'
 
-// Use Groq if available, otherwise Gemini
-const useGroq = !!GROQ_API_KEY
-
-/**
- * Generic AI completion call
- */
+// ─── Core Completion (non-streaming) ─────────────────────────────────────────
 async function aiComplete(systemPrompt, userMessage) {
-  if (useGroq) {
-    return groqComplete(systemPrompt, userMessage)
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage },
+  ]
+
+  if (IS_PRODUCTION) {
+    return proxyComplete(messages)
   }
-  return geminiComplete(systemPrompt, userMessage)
+  return directAzureComplete(messages)
 }
 
-async function groqComplete(systemPrompt, userMessage) {
-  const res = await fetch(GROQ_API_URL, {
+async function directAzureComplete(messages, temperature = 0.3, maxTokens = 1024) {
+  if (!AZURE_DIRECT_URL || !AZURE_API_KEY) {
+    throw new Error('Azure Phi-4 credentials not configured')
+  }
+
+  const res = await fetch(AZURE_DIRECT_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'api-key': AZURE_API_KEY,
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      temperature: 0.3,
-      max_tokens: 1024,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
     }),
   })
-  if (!res.ok) throw new Error('Groq API call failed')
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    throw new Error(`Phi-4 API error (${res.status}): ${errorText}`)
+  }
+
   const data = await res.json()
   return data.choices[0].message.content
 }
 
-async function geminiComplete(systemPrompt, userMessage) {
-  const res = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+async function proxyComplete(messages, temperature = 0.3, maxTokens = 1024) {
+  const res = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, temperature, max_tokens: maxTokens }),
+  })
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    throw new Error(`Proxy AI error (${res.status}): ${errorText}`)
+  }
+
+  const data = await res.json()
+  return data.choices[0].message.content
+}
+
+// ─── Streaming Chat ──────────────────────────────────────────────────────────
+export async function streamChatWithAI(chatMessages, emailContext, onChunk) {
+  const systemPrompt = `You are Zwoop Intelligence, an AI assistant integrated into ZwoopMail.
+You help users manage, read, summarize, search, and draft emails.
+Be concise, friendly, and helpful. Use markdown for formatting when appropriate.
+
+Current user's recent emails (for context):
+${(emailContext || []).slice(0, 30).map(e => `• [${e.senderName}] ${e.subject} — ${(e.snippet || '').slice(0, 80)}`).join('\n')}`
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...chatMessages.map(m => ({
+      role: m.sender === 'user' ? 'user' : 'assistant',
+      content: m.text,
+    })),
+  ]
+
+  if (IS_PRODUCTION) {
+    return proxyStream(messages, onChunk)
+  }
+  return directAzureStream(messages, onChunk)
+}
+
+async function directAzureStream(messages, onChunk) {
+  const res = await fetch(AZURE_DIRECT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': AZURE_API_KEY,
+    },
+    body: JSON.stringify({
+      messages,
+      temperature: 0.5,
+      max_tokens: 2000,
+      stream: true,
+    }),
+  })
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    throw new Error(`Phi-4 stream error (${res.status}): ${errorText}`)
+  }
+
+  await readSSEStream(res, onChunk)
+}
+
+async function proxyStream(messages, onChunk) {
+  const res = await fetch(PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ parts: [{ text: userMessage }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+      messages,
+      temperature: 0.5,
+      max_tokens: 2000,
+      stream: true,
     }),
   })
-  if (!res.ok) throw new Error('Gemini API call failed')
-  const data = await res.json()
-  return data.candidates[0].content.parts[0].text
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    throw new Error(`Proxy stream error (${res.status}): ${errorText}`)
+  }
+
+  await readSSEStream(res, onChunk)
 }
 
-/**
- * Categorize a batch of emails into streams.
- * Returns an array of categories: people, transactions, newsletters, notifications, promotions
- */
+async function readSSEStream(response, onChunk) {
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    const chunk = decoder.decode(value, { stream: true })
+    const lines = chunk.split('\n')
+
+    for (const line of lines) {
+      if (line.trim() === '' || line.trim() === 'data: [DONE]') continue
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6))
+          if (data.choices?.[0]?.delta?.content) {
+            onChunk(data.choices[0].delta.content)
+          }
+        } catch {
+          // partial JSON chunk, skip
+        }
+      }
+    }
+  }
+}
+
+// ─── Email Categorization ────────────────────────────────────────────────────
 export async function categorizeEmails(emails) {
   if (!emails.length) return []
 
@@ -93,9 +194,7 @@ Respond with one category per line, matching the email index. Just the category 
   }
 }
 
-/**
- * Detect which emails need urgent attention
- */
+// ─── Urgency Detection ───────────────────────────────────────────────────────
 export async function detectUrgent(emails) {
   if (!emails.length) return []
 
@@ -124,9 +223,7 @@ Respond with one word per line: "urgent" or "normal". Nothing else.`
   }
 }
 
-/**
- * AI-assisted email composition
- */
+// ─── Compose Assist ──────────────────────────────────────────────────────────
 export async function composeAssist(text, action) {
   const actions = {
     professional: 'Rewrite this email in a professional, formal tone. Keep the core message but make it appropriate for business communication.',
@@ -143,9 +240,7 @@ Return ONLY the rewritten email text. No explanations, no quotes, no markdown fo
   return aiComplete(systemPrompt, text)
 }
 
-/**
- * Parse natural language search into Gmail query
- */
+// ─── Search Query Parser ─────────────────────────────────────────────────────
 export async function parseSearchQuery(naturalQuery) {
   const systemPrompt = `Convert a natural language email search into a Gmail search query.
 Examples:
@@ -159,38 +254,59 @@ Return ONLY the Gmail query string. Nothing else.`
   try {
     return await aiComplete(systemPrompt, naturalQuery)
   } catch {
-    return naturalQuery // Fallback to raw query
+    return naturalQuery
   }
 }
 
-/**
- * Fallback heuristic categorization (no AI needed)
- */
+// ─── Past 5 Emails Analysis ──────────────────────────────────────────────────
+export async function analyzePast5Emails(emails) {
+  if (!emails || emails.length === 0) return []
+
+  const recentEmails = emails.slice(0, 5)
+  const emailSummaries = recentEmails.map((e) => (
+    `ID: ${e.id}\nFrom: ${e.senderName} <${e.senderEmail}>\nSubject: ${e.subject}\nDate: ${e.date}\nSnippet: ${e.snippet?.slice(0, 300)}`
+  )).join('\n\n')
+
+  const systemPrompt = `You are an intelligent email analyzer. Analyze each email and return a JSON array.
+Each object must have these exact keys:
+- id: The email ID provided
+- urgency: "high", "medium", or "low"
+- summary: A 1-2 sentence concise summary
+- actionItem: A short action description (e.g. "Reply required", "Pay invoice", "No action needed")
+
+Respond ONLY with valid JSON. No markdown fences, no explanations.`
+
+  try {
+    const response = await aiComplete(systemPrompt, emailSummaries)
+    let cleaned = response.trim()
+    if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7)
+    if (cleaned.startsWith('```')) cleaned = cleaned.slice(3)
+    if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3)
+
+    return JSON.parse(cleaned.trim())
+  } catch (err) {
+    console.error('Analysis failed:', err)
+    return []
+  }
+}
+
+// ─── Heuristic Fallback ──────────────────────────────────────────────────────
 function heuristicCategorize(email) {
   const from = email.senderEmail?.toLowerCase() || ''
   const subject = email.subject?.toLowerCase() || ''
   const snippet = email.snippet?.toLowerCase() || ''
 
-  // Transactions
   if (/order|shipping|delivered|receipt|invoice|payment|otp|verification|confirm/i.test(subject + snippet)) {
     return 'transactions'
   }
-
-  // Promotions
   if (/sale|deal|offer|discount|off|coupon|promo|unsubscribe/i.test(subject + snippet)) {
     return 'promotions'
   }
-
-  // Notifications
   if (/notification|alert|update|linkedin|facebook|twitter|instagram/i.test(from + subject)) {
     return 'notifications'
   }
-
-  // Newsletters
   if (/newsletter|digest|weekly|monthly|blog|noreply|no-reply/i.test(from + subject)) {
     return 'newsletters'
   }
-
-  // Default: people
   return 'people'
 }
