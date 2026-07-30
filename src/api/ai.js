@@ -21,62 +21,85 @@ async function fetchWithRetry(url, options, maxRetries = 2) {
   }
 }
 
+// ─── Global AI Request Queue (Mutex) ─────────────────────────────────────────
+// Prevents concurrent requests to Azure Phi to avoid 429 collisions.
+let aiQueue = Promise.resolve()
+
+function enqueueTask(taskFn) {
+  return new Promise((resolve, reject) => {
+    aiQueue = aiQueue.then(async () => {
+      try {
+        const result = await taskFn()
+        resolve(result)
+      } catch (err) {
+        reject(err)
+      }
+      // Cooldown to respect TPM limits
+      await new Promise(r => setTimeout(r, 1000))
+    })
+  })
+}
+
 // ─── Core Completion ─────────────────────────────────────────────────────────
 async function aiComplete(systemPrompt, userMessage) {
-  const res = await fetchWithRetry(PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      temperature: 0.3,
-      max_tokens: 512,
-    }),
+  return enqueueTask(async () => {
+    const res = await fetchWithRetry(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.3,
+        max_tokens: 512,
+      }),
+    })
+    if (!res.ok) {
+      const errorText = await res.text()
+      throw new Error(`Phi-mini error (${res.status}): ${errorText}`)
+    }
+    const data = await res.json()
+    return data.choices[0].message.content
   })
-  if (!res.ok) {
-    const errorText = await res.text()
-    throw new Error(`Phi-mini error (${res.status}): ${errorText}`)
-  }
-  const data = await res.json()
-  return data.choices[0].message.content
 }
 
 // ─── Streaming Chat ──────────────────────────────────────────────────────────
 export async function streamChatWithAI(chatMessages, emailContext, onChunk) {
-  const ctx = (emailContext || []).slice(0, 5).map(e => `• ${e.senderName}: ${e.subject}`).join('\n')
+  return enqueueTask(async () => {
+    const ctx = (emailContext || []).slice(0, 5).map(e => `• ${e.senderName}: ${e.subject}`).join('\n')
 
-  const messages = [
-    { role: 'system', content: `You are Zwoop AI, an email assistant. Be concise.\n\nRecent emails:\n${ctx}` },
-    ...chatMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text })),
-  ]
+    const messages = [
+      { role: 'system', content: `You are Zwoop AI, an email assistant. Be concise.\n\nRecent emails:\n${ctx}` },
+      ...chatMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text })),
+    ]
 
-  const res = await fetchWithRetry(PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, temperature: 0.5, max_tokens: 800, stream: true }),
-  })
+    const res = await fetchWithRetry(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, temperature: 0.5, max_tokens: 800, stream: true }),
+    })
 
-  if (!res.ok) {
-    const errorText = await res.text()
-    throw new Error(`Phi-mini stream error (${res.status}): ${errorText}`)
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder('utf-8')
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    const chunk = decoder.decode(value, { stream: true })
-    for (const line of chunk.split('\n')) {
-      if (!line.startsWith('data: ') || line.trim() === 'data: [DONE]') continue
-      try {
-        const data = JSON.parse(line.slice(6))
-        if (data.choices?.[0]?.delta?.content) onChunk(data.choices[0].delta.content)
-      } catch { /* partial chunk */ }
+    if (!res.ok) {
+      const errorText = await res.text()
+      throw new Error(`Phi-mini stream error (${res.status}): ${errorText}`)
     }
-  }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value, { stream: true })
+      for (const line of chunk.split('\n')) {
+        if (!line.startsWith('data: ') || line.trim() === 'data: [DONE]') continue
+        try {
+          const data = JSON.parse(line.slice(6))
+          if (data.choices?.[0]?.delta?.content) onChunk(data.choices[0].delta.content)
+        } catch { /* partial chunk */ }
+      }
+    }
+  })
 }
 
 // ─── Email Categorization ────────────────────────────────────────────────────
