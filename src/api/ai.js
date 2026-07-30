@@ -81,25 +81,9 @@ export async function streamChatWithAI(chatMessages, emailContext, onChunk) {
 // ─── Email Categorization ────────────────────────────────────────────────────
 export async function categorizeEmails(emails) {
   if (!emails.length) return []
-
-  const summaries = emails.map((e, i) =>
-    `${i}. ${e.senderName}: ${e.subject}`
-  ).join('\n')
-
-  try {
-    const result = await aiComplete(
-      'Categorize each email as: people, transactions, newsletters, notifications, or promotions. One word per line.',
-      summaries
-    )
-    const categories = result.trim().split('\n').map(line => {
-      const c = line.replace(/^\d+\.\s*/, '').trim().toLowerCase()
-      return ['people', 'transactions', 'newsletters', 'notifications', 'promotions'].includes(c) ? c : 'notifications'
-    })
-    return categories
-  } catch (err) {
-    console.warn('AI categorization failed, using heuristics:', err)
-    return emails.map(e => heuristicCategorize(e))
-  }
+  
+  // Directly use heuristics to avoid destroying the Phi-4 TPM quota on app load
+  return emails.map(e => heuristicCategorize(e))
 }
 
 // ─── Urgency Detection ───────────────────────────────────────────────────────

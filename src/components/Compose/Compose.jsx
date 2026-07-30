@@ -76,7 +76,8 @@ export default function Compose() {
         setBody(rewritten)
       }
     } catch (err) {
-      setError('AI Assist unreachable (Check API Key in .env).')
+      console.error(err)
+      setError(`AI Assist error: ${err.message || 'Failed to rewrite text'}`)
     } finally {
       setAiLoading(false)
       setActiveAiAction(null)
