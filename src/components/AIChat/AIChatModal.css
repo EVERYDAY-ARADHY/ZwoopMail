@@ -557,42 +557,81 @@
   margin-top: 6px;
 }
 
-/* Chat Footer Form */
+/* Chat Footer Form (Gemini Style) */
 .ai-chat-footer {
-  display: flex;
-  gap: 8px;
   padding: 16px 20px;
   background: var(--color-bg-card, #ffffff);
   border-top: 1px solid var(--color-border, #e0d8cd);
 }
 
+.ai-chat-input-pill {
+  display: flex;
+  align-items: center;
+  background: var(--color-bg, #f5efe6);
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 32px;
+  padding: 8px 12px 8px 20px;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.ai-chat-input-pill:focus-within {
+  border-color: var(--color-ember, #fc5000);
+  box-shadow: 0 0 0 3px rgba(252, 80, 0, 0.1);
+}
+
 .ai-chat-input {
   flex: 1;
-  padding: 12px 16px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border, #ccc);
-  background: var(--color-bg, #f5efe6);
+  background: transparent;
+  border: none;
   font-family: inherit;
   font-size: 14px;
   color: var(--color-text, #18181a);
   outline: none;
+  padding: 6px 0;
 }
 
-.ai-chat-input:focus {
-  border-color: var(--color-ember, #fc5000);
-  box-shadow: 0 0 0 2px rgba(252, 80, 0, 0.2);
+.ai-deep-search-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-text-subtle, #666);
+  border: 1px solid transparent;
+}
+
+.ai-deep-search-badge:hover {
+  background: rgba(252, 80, 0, 0.08);
+  color: var(--color-ember, #fc5000);
+}
+
+.ai-deep-search-badge.active {
+  background: rgba(252, 80, 0, 0.12);
+  color: var(--color-ember, #fc5000);
+  border-color: rgba(252, 80, 0, 0.2);
 }
 
 .ai-send-btn {
   background: var(--color-ember, #fc5000);
   color: #fff;
   border: none;
-  padding: 0 20px;
-  border-radius: 10px;
-  font-size: 16px;
-  font-weight: 700;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
   cursor: pointer;
   transition: opacity 0.2s ease;
+  flex-shrink: 0;
 }
 
 .ai-send-btn:disabled {

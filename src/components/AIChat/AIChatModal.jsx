@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMail } from '../../context/MailContext'
-import { analyzePast5Emails, streamChatWithAI } from '../../api/ai'
+import { analyzeTodaysEmails, streamChatWithAI, retrieveRelevantEmailIds } from '../../api/ai'
 import './AIChatModal.css'
 
 export default function AIChatModal({ isOpen, onClose }) {
-  const { emails, user } = useMail()
+  const { emails, user, toggleCompose, setSelectedEmail } = useMail()
   const [activeTab, setActiveTab] = useState('summary') // 'summary' | 'chat'
   
   // Summary State
@@ -16,6 +16,7 @@ export default function AIChatModal({ isOpen, onClose }) {
   const [messages, setMessages] = useState([])
   const [inputMessage, setInputMessage] = useState('')
   const [isChatLoading, setIsChatLoading] = useState(false)
+  const [useDeepSearch, setUseDeepSearch] = useState(false)
   const chatEndRef = useRef(null)
 
   // Fetch analysis when opening the summary tab for the first time
@@ -37,7 +38,7 @@ export default function AIChatModal({ isOpen, onClose }) {
   const handleAnalyze = async () => {
     setIsAnalyzing(true)
     try {
-      const results = await analyzePast5Emails(emails)
+      const results = await analyzeTodaysEmails(emails)
       setEmailAnalysis(results)
       setHasAnalyzed(true)
     } catch (err) {
@@ -57,12 +58,42 @@ export default function AIChatModal({ isOpen, onClose }) {
     setInputMessage('')
     setIsChatLoading(true)
 
+    let relevantEmails = emails.slice(0, 5) // default context
+    let messageSources = []
+
+    if (useDeepSearch && emails.length > 0) {
+      // Step 1: Tell user we are searching
+      const searchingMsgId = Date.now().toString() + '_search'
+      setMessages(prev => [...prev, { id: searchingMsgId, sender: 'assistant', text: 'Searching through last 30 emails...', isSearch: true }])
+      
+      try {
+        const targetCount = Math.min(30, emails.length)
+        const lightWeightEmails = emails.slice(0, targetCount).map(e => ({
+          id: e.id,
+          subject: e.subject,
+          sender: e.senderName,
+          date: e.date
+        }))
+        
+        const relevantIds = await retrieveRelevantEmailIds(text.trim(), lightWeightEmails)
+        if (relevantIds && relevantIds.length > 0) {
+          relevantEmails = emails.filter(e => relevantIds.includes(e.id))
+          messageSources = relevantEmails.map(e => ({ id: e.id, subject: e.subject, senderName: e.senderName, email: e }))
+        }
+      } catch (err) {
+        console.error("Deep search retrieval failed:", err)
+      }
+      
+      // Remove searching message
+      setMessages(prev => prev.filter(m => m.id !== searchingMsgId))
+    }
+
     // Add empty assistant message that we will stream into
     const assistantMessageId = (Date.now() + 1).toString()
-    setMessages(prev => [...prev, { id: assistantMessageId, sender: 'assistant', text: '' }])
+    setMessages(prev => [...prev, { id: assistantMessageId, sender: 'assistant', text: '', sources: messageSources }])
 
     try {
-      await streamChatWithAI(updatedMessages, emails.slice(0, 5), (chunk) => {
+      await streamChatWithAI(updatedMessages, relevantEmails, (chunk) => {
         setMessages(prev => {
           const newMessages = [...prev]
           const lastIndex = newMessages.length - 1
@@ -73,6 +104,41 @@ export default function AIChatModal({ isOpen, onClose }) {
           return newMessages
         })
       })
+
+      // Post-streaming Agentic Command Interception
+      setMessages(prev => {
+        const newMessages = [...prev]
+        const lastMsg = newMessages[newMessages.length - 1]
+        
+        if (lastMsg && lastMsg.text && lastMsg.id === assistantMessageId) {
+          const agentMatch = lastMsg.text.match(/<agent>([\s\S]*?)<\/agent>/)
+          if (agentMatch) {
+            try {
+              const command = JSON.parse(agentMatch[1])
+              lastMsg.text = lastMsg.text.replace(/<agent>[\s\S]*?<\/agent>/, '').trim()
+              if (!lastMsg.text) {
+                lastMsg.text = "Executing action..."
+              }
+              
+              if (command.action === 'DRAFT_REPLY') {
+                const targetEmail = emails.find(e => e.id === command.emailId)
+                setTimeout(() => {
+                  toggleCompose({
+                    to: targetEmail ? targetEmail.senderEmail : command.to || '',
+                    subject: targetEmail ? `Re: ${targetEmail.subject}` : command.subject || '',
+                    body: command.content
+                  })
+                  onClose()
+                }, 1000)
+              }
+            } catch (e) {
+              console.error("Failed to parse agentic command:", e)
+            }
+          }
+        }
+        return newMessages
+      })
+
     } catch (err) {
       console.error("Chat streaming failed", err)
       setMessages(prev => {
@@ -232,6 +298,43 @@ export default function AIChatModal({ isOpen, onClose }) {
                         {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="ai-message-sources" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--color-text-subtle, #666)', fontWeight: 600 }}>Sources:</span>
+                        {msg.sources.map(src => (
+                          <div 
+                            key={src.id} 
+                            className="ai-source-pill"
+                            onClick={() => {
+                              setSelectedEmail(src.email)
+                              onClose()
+                            }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              background: 'var(--color-bg, #f5efe6)',
+                              border: '1px solid var(--color-border, #ccc)',
+                              padding: '4px 8px',
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              color: 'var(--color-text, #333)',
+                              cursor: 'pointer',
+                              width: 'fit-content',
+                              maxWidth: '100%',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseOver={e => e.currentTarget.style.borderColor = 'var(--color-ember, #fc5000)'}
+                            onMouseOut={e => e.currentTarget.style.borderColor = 'var(--color-border, #ccc)'}
+                          >
+                            <span style={{ fontWeight: 600, marginRight: '4px' }}>{src.senderName}:</span>
+                            <span style={{ opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis' }}>{src.subject}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -239,21 +342,31 @@ export default function AIChatModal({ isOpen, onClose }) {
             </div>
 
             <form className="ai-chat-footer" onSubmit={handleSendMessage}>
-              <input 
-                type="text" 
-                className="ai-chat-input"
-                placeholder="Ask Zwoop Intelligence..."
-                value={inputMessage}
-                onChange={e => setInputMessage(e.target.value)}
-                disabled={isChatLoading}
-              />
-              <button 
-                type="submit" 
-                className="ai-send-btn"
-                disabled={!inputMessage.trim() || isChatLoading}
-              >
-                {isChatLoading ? '⋯' : '➤'}
-              </button>
+              <div className="ai-chat-input-pill">
+                <input
+                  type="text"
+                  className="ai-chat-input"
+                  placeholder="Ask Zwoop Intelligence..."
+                  value={inputMessage}
+                  onChange={e => setInputMessage(e.target.value)}
+                  disabled={isChatLoading}
+                />
+                <div 
+                  className={`ai-deep-search-badge ${useDeepSearch ? 'active' : ''}`}
+                  onClick={() => !isChatLoading && setUseDeepSearch(!useDeepSearch)}
+                  title="Search last 30 emails before answering or drafting"
+                >
+                  <span style={{ fontSize: '14px' }}>⌕</span>
+                  Context (Search & Draft)
+                </div>
+                <button
+                  type="submit"
+                  className="ai-send-btn"
+                  disabled={!inputMessage.trim() || isChatLoading}
+                >
+                  ➤
+                </button>
+              </div>
             </form>
           </div>
         )}

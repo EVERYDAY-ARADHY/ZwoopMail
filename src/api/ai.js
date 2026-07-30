@@ -67,10 +67,17 @@ async function aiComplete(systemPrompt, userMessage) {
 // ─── Streaming Chat ──────────────────────────────────────────────────────────
 export async function streamChatWithAI(chatMessages, emailContext, onChunk) {
   return enqueueTask(async () => {
-    const ctx = (emailContext || []).slice(0, 5).map(e => `• ${e.senderName}: ${e.subject}`).join('\n')
+    const ctx = (emailContext || []).slice(0, 3).map(e => `• ID:${e.id} From:${e.senderName} Sub:${e.subject}\nBody: ${(e.snippet || '').slice(0, 400)}`).join('\n\n')
 
     const messages = [
-      { role: 'system', content: `You are Zwoop AI, an email assistant. Be concise.\n\nRecent emails:\n${ctx}` },
+      { role: 'system', content: `You are Zwoop AI, an email assistant. Be concise.
+Recent emails:
+${ctx}
+
+AGENTIC CAPABILITIES:
+If the user asks you to DRAFT an email, you must output a JSON block wrapped in <agent> tags like this:
+<agent>{"action": "DRAFT_REPLY", "emailId": "the-id", "content": "The drafted body"}</agent>
+Include some conversational text before or after the tag.` },
       ...chatMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text })),
     ]
 
@@ -148,11 +155,24 @@ export async function parseSearchQuery(naturalQuery) {
   }
 }
 
-// ─── Past 5 Emails Analysis ──────────────────────────────────────────────────
-export async function analyzePast5Emails(emails) {
+// ─── Past 5 Emails Analysis (Now Today's Emails) ───────────────────────────────
+export async function analyzeTodaysEmails(emails) {
   if (!emails || !emails.length) return []
 
-  const summaries = emails.slice(0, 5).map(e =>
+  // Filter for emails within the last 24 hours
+  const now = Date.now()
+  const oneDayMs = 24 * 60 * 60 * 1000
+  const todaysEmails = emails.filter(e => {
+    if (!e.date) return false
+    const d = new Date(e.date).getTime()
+    return (now - d) < oneDayMs
+  })
+
+  // Limit to at most 10 emails to keep token count reasonable
+  const targetEmails = todaysEmails.slice(0, 10)
+  if (targetEmails.length === 0) return []
+
+  const summaries = targetEmails.map(e =>
     `ID:${e.id} From:${e.senderName} Sub:${e.subject} Snip:${(e.snippet || '').slice(0, 100)}`
   ).join('\n')
 
@@ -168,6 +188,28 @@ export async function analyzePast5Emails(emails) {
     return JSON.parse(cleaned.trim())
   } catch (err) {
     console.error('Analysis failed:', err)
+    return []
+  }
+}
+
+// ─── Deep Search / RAG ID Retrieval ──────────────────────────────────────────
+export async function retrieveRelevantEmailIds(query, lightWeightEmails) {
+  if (!lightWeightEmails || !lightWeightEmails.length) return []
+  
+  const payloadStr = JSON.stringify(lightWeightEmails)
+  const systemPrompt = `You are a search assistant. You are given a JSON array of emails (id, subject, sender, date). You must return a strict JSON array of STRING IDs (e.g. ["id1", "id2"]) that might contain the answer to the user's query. Return ONLY the JSON array. Limit to maximum 3 most relevant IDs.`
+  
+  try {
+    const response = await aiComplete(systemPrompt, `Query: ${query}\nEmails: ${payloadStr}`)
+    let cleaned = response.trim()
+    if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7)
+    if (cleaned.startsWith('```')) cleaned = cleaned.slice(3)
+    if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3)
+    
+    const parsed = JSON.parse(cleaned.trim())
+    return Array.isArray(parsed) ? parsed : []
+  } catch (err) {
+    console.error('ID retrieval failed:', err)
     return []
   }
 }
