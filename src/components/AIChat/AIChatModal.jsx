@@ -16,7 +16,7 @@ export default function AIChatModal({ isOpen, onClose }) {
   const [messages, setMessages] = useState([])
   const [inputMessage, setInputMessage] = useState('')
   const [isChatLoading, setIsChatLoading] = useState(false)
-  const [useDeepSearch, setUseDeepSearch] = useState(false)
+  const [useDeepSearch, setUseDeepSearch] = useState(true)
   const chatEndRef = useRef(null)
 
   // Fetch analysis when opening the summary tab for the first time
@@ -195,7 +195,7 @@ export default function AIChatModal({ isOpen, onClose }) {
             <div className="ai-summary-topbar">
               <div className="ai-summary-heading">
                 <h3 className="font-display">Recent Inbox Activity</h3>
-                <p className="font-mono">AI analysis of your 5 most recent emails</p>
+                <p className="font-mono">AI analysis of all emails received today</p>
               </div>
               <button className="ai-refresh-btn font-mono" onClick={handleAnalyze} disabled={isAnalyzing}>
                 {isAnalyzing ? 'Analyzing...' : '↻ Refresh Analysis'}

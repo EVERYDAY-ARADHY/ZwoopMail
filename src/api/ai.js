@@ -169,7 +169,7 @@ export async function analyzeTodaysEmails(emails) {
   })
 
   // Limit to at most 10 emails to keep token count reasonable
-  const targetEmails = todaysEmails.slice(0, 10)
+  const targetEmails = todaysEmails
   if (targetEmails.length === 0) return []
 
   const summaries = targetEmails.map(e =>
@@ -178,7 +178,7 @@ export async function analyzeTodaysEmails(emails) {
 
   try {
     const response = await aiComplete(
-      'Return JSON array. Each: {id,urgency:"high"|"medium"|"low",summary:"1 sentence",actionItem:"short action"}. JSON only.',
+      'You are an email analyzer. Return ONLY a valid JSON array. Do not include markdown code blocks. Each object in the array must have: {id: string, urgency: "high"|"medium"|"low", summary: "1 short sentence", actionItem: "short action or No action needed"}.',
       summaries
     )
     let cleaned = response.trim()
