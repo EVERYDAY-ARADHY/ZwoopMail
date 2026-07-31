@@ -64,10 +64,49 @@ async function aiComplete(systemPrompt, userMessage) {
   })
 }
 
+// ─── Email Thread Cleaner ────────────────────────────────────────────────────
+// Strips out quoted replies, forwarded headers, and automated boilerplates
+export function cleanEmailThread(text) {
+  if (!text) return '';
+  let cleaned = text;
+
+  // 1. Truncate at common reply/forward markers
+  const markers = [
+    /\nOn .*? wrote:/i,
+    /_{10,} Original Message _{10,}/i,
+    /-------- Original Message --------/i,
+    /\nFrom: .*?\nTo: .*?\nDate: /i
+  ];
+  for (const marker of markers) {
+    const match = cleaned.match(marker);
+    if (match) {
+      cleaned = cleaned.substring(0, match.index);
+    }
+  }
+
+  // 2. Remove standard IT warnings/disclaimers
+  cleaned = cleaned.replace(/CAUTION: This email originated from outside.*?safe\./gi, '');
+
+  // 3. Remove quoted lines (starting with >)
+  cleaned = cleaned.split('\n').filter(line => !line.trim().startsWith('>')).join('\n');
+
+  // 4. Truncate at standard signature markers
+  const sigMatch = cleaned.match(/\n--\s*\n/);
+  if (sigMatch) {
+    cleaned = cleaned.substring(0, sigMatch.index);
+  }
+
+  return cleaned.trim();
+}
+
 // ─── Streaming Chat ──────────────────────────────────────────────────────────
 export async function streamChatWithAI(chatMessages, emailContext, onChunk) {
   return enqueueTask(async () => {
-    const ctx = (emailContext || []).slice(0, 3).map(e => `• ID:${e.id} From:${e.senderName} Sub:${e.subject}\nBody: ${(e.snippet || '').slice(0, 400)}`).join('\n\n')
+    const ctx = (emailContext || []).slice(0, 3).map(e => {
+      const rawText = e.bodyText || e.snippet || '';
+      const cleaned = cleanEmailThread(rawText);
+      return `• ID:${e.id} From:${e.senderName} Sub:${e.subject}\nBody: ${cleaned.slice(0, 1000)}`;
+    }).join('\n\n')
 
     const messages = [
       { role: 'system', content: `You are Zwoop AI, an email assistant. Be concise.
