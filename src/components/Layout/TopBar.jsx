@@ -1,15 +1,39 @@
 import { useState } from 'react'
 import { useMail } from '../../context/MailContext'
+import { parseSearchQuery } from '../../api/ai'
 import './TopBar.css'
 
 export default function TopBar({ onSearch, onHamburgerClick, onOpenAI }) {
-  const { searchQuery, dispatch } = useMail()
+  const { searchQuery, dispatch, accessToken } = useMail()
   const [inputValue, setInputValue] = useState('')
+  const [isParsing, setIsParsing] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    dispatch({ type: 'SET_SEARCH', payload: inputValue })
-    onSearch?.(inputValue)
+    const raw = inputValue.trim()
+    if (!raw) return
+
+    // Only run NLP parsing for authenticated (non-demo) users with a multi-word query
+    const isNaturalLanguage = raw.includes(' ') || /[a-z]/i.test(raw)
+    if (accessToken && isNaturalLanguage) {
+      setIsParsing(true)
+      try {
+        const parsed = await parseSearchQuery(raw)
+        // Use the AI-parsed Gmail query; fall back to the raw input if parsing fails
+        const finalQuery = parsed?.trim() || raw
+        dispatch({ type: 'SET_SEARCH', payload: finalQuery })
+        onSearch?.(finalQuery)
+      } catch {
+        // Silently fall back to raw query on error
+        dispatch({ type: 'SET_SEARCH', payload: raw })
+        onSearch?.(raw)
+      } finally {
+        setIsParsing(false)
+      }
+    } else {
+      dispatch({ type: 'SET_SEARCH', payload: raw })
+      onSearch?.(raw)
+    }
   }
 
   const handleClear = () => {
@@ -33,12 +57,15 @@ export default function TopBar({ onSearch, onHamburgerClick, onOpenAI }) {
       </button>
 
       <form className="topbar-search" onSubmit={handleSubmit}>
-        <span className="topbar-search-icon">⌕</span>
+        <span className="topbar-search-icon" style={isParsing ? { animation: 'spin 0.8s linear infinite', display: 'inline-block' } : {}}>
+          {isParsing ? '◉' : '⌕'}
+        </span>
         <input
           type="text"
           className="topbar-search-input"
-          placeholder="search emails..."
+          placeholder={isParsing ? 'Parsing with AI...' : 'search emails... (press ↵ for AI search)'}
           value={inputValue}
+          disabled={isParsing}
           onChange={(e) => {
             setInputValue(e.target.value)
             dispatch({ type: 'SET_SEARCH', payload: e.target.value })
@@ -46,7 +73,7 @@ export default function TopBar({ onSearch, onHamburgerClick, onOpenAI }) {
           }}
           spellCheck={false}
         />
-        {inputValue && (
+        {inputValue && !isParsing && (
           <button type="button" className="topbar-search-clear" onClick={handleClear}>
             ✕
           </button>

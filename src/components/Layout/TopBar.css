@@ -75,6 +75,16 @@
   font-size: var(--text-lg);
   color: var(--color-text-tertiary);
   user-select: none;
+  transition: color 0.2s;
+}
+
+.topbar-search:focus-within .topbar-search-icon {
+  color: var(--color-ember, #fc5000);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .topbar-search-input {

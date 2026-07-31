@@ -8,6 +8,7 @@ import './Compose.css'
 const AI_ACTIONS = [
   { id: 'professional', label: 'Professional', icon: '■', desc: 'Formal and business-ready' },
   { id: 'casual', label: 'Casual', icon: '●', desc: 'Warm and conversational' },
+  { id: 'friendly', label: 'Friendly', icon: '◆', desc: 'Warm and approachable' },
   { id: 'shorter', label: 'Make Shorter', icon: '►', desc: 'Concise and to the point' },
   { id: 'fix_grammar', label: 'Fix Grammar', icon: '✦', desc: 'Clean up errors & phrasing' },
   { id: 'urgent', label: 'Urgent Tone', icon: '▲', desc: 'Convey high importance' }
@@ -174,9 +175,9 @@ export default function Compose() {
             </div>
 
             <div className="compose-ai-footer font-mono">
-              ┌─ Powered by Groq / Gemini ─┐<br />
-              │ &nbsp;&nbsp;&nbsp;0.3s warm-up tokens&nbsp;&nbsp;&nbsp; │<br />
-              └────────────────────────────┘
+              ┌─ Powered by Azure Phi-4 ──┐<br />
+              │ &nbsp;&nbsp;via /api/ai proxy&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; │<br />
+              └───────────────────────────┘
             </div>
           </aside>
         </div>
