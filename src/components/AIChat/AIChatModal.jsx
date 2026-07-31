@@ -233,11 +233,17 @@ export default function AIChatModal({ isOpen, onClose }) {
                       
                       <div className="card-footer-btns">
                         <button className="card-btn primary" onClick={() => {
-                          // Jump to chat tab and ask to draft reply
-                          setActiveTab('chat')
-                          handleSendMessage(null, `Help me draft a reply to the email from ${email.senderName} regarding "${email.subject}"`)
+                          onClose()
+                          toggleCompose({
+                            to: email.senderEmail || '',
+                            subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
+                            body: `\n\nOn ${new Date(email.date).toLocaleDateString()}, ${email.senderName} wrote:\n> ${(email.bodyText || email.snippet || '').slice(0, 300)}`
+                          })
                         }}>Draft Reply</button>
-                        <button className="card-btn secondary" onClick={onClose}>View Mail</button>
+                        <button className="card-btn secondary" onClick={() => {
+                          onClose()
+                          setSelectedEmail(email)
+                        }}>View Mail</button>
                       </div>
                     </div>
                   )
