@@ -167,12 +167,12 @@ export default function AIChatModal({ isOpen, onClose }) {
       <div className="ai-modal-container" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="ai-modal-header">
-          <div className="ai-modal-title">
+          <div className="ai-modal-title font-display">
             <span className="ai-sparkle-icon">✦</span>
             Zwoop Intelligence
-            <span className="ai-model-badge">phi-mini</span>
+            <span className="ai-model-badge font-mono">phi-mini</span>
           </div>
-          <div className="ai-modal-tabs">
+          <div className="ai-modal-tabs font-mono">
             <button 
               className={`ai-tab-btn ${activeTab === 'summary' ? 'active' : ''}`}
               onClick={() => setActiveTab('summary')}
@@ -194,10 +194,10 @@ export default function AIChatModal({ isOpen, onClose }) {
           <div className="ai-summary-view">
             <div className="ai-summary-topbar">
               <div className="ai-summary-heading">
-                <h3>Recent Inbox Activity</h3>
-                <p>AI analysis of your 5 most recent emails</p>
+                <h3 className="font-display">Recent Inbox Activity</h3>
+                <p className="font-mono">AI analysis of your 5 most recent emails</p>
               </div>
-              <button className="ai-refresh-btn" onClick={handleAnalyze} disabled={isAnalyzing}>
+              <button className="ai-refresh-btn font-mono" onClick={handleAnalyze} disabled={isAnalyzing}>
                 {isAnalyzing ? 'Analyzing...' : '↻ Refresh Analysis'}
               </button>
             </div>
