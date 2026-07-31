@@ -88,7 +88,6 @@ export default function TopBar({ onSearch, onHamburgerClick, onOpenAI }) {
         >
           <span className="ai-sparkle">✦</span> Ask AI
         </button>
-        <span className="topbar-shortcut font-mono">⌘K</span>
       </div>
     </header>
   )

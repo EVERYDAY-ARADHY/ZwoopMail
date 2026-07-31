@@ -139,10 +139,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background-color: var(--color-bg-card, #ffffff);
+  background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: 13px;
   padding: 6px 12px;
