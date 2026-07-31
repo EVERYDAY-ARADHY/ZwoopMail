@@ -109,9 +109,10 @@ export async function streamChatWithAI(chatMessages, emailContext, onChunk) {
     }).join('\n\n')
 
     const messages = [
-      { role: 'system', content: `You are Zwoop AI, an email assistant. Be concise.
+      { role: 'system', content: `You are Zwoop AI, an email assistant. YOU HAVE FULL ACCESS to the user's emails provided below. Do not claim you lack access.
+If the answer is not in the provided emails, say "I couldn't find any relevant emails regarding that" instead of saying you don't have access.
 Recent emails:
-${ctx}
+${ctx || '(No relevant emails found for this query)'}
 
 AGENTIC CAPABILITIES:
 If the user asks you to DRAFT an email, you must output a JSON block wrapped in <agent> tags like this:
