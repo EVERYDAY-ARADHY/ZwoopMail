@@ -161,8 +161,8 @@ function AppContent() {
   if (isRestoring) {
     return (
       <div style={{
-        height: '100vh',
-        width: '100vw',
+        position: 'fixed',
+        inset: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -170,7 +170,8 @@ function AppContent() {
         color: 'var(--color-text, #18181a)',
         fontFamily: 'monospace',
         fontSize: '14px',
-        letterSpacing: '0.05em'
+        letterSpacing: '0.05em',
+        zIndex: 9999
       }}>
         ◉ Restoring session...
       </div>

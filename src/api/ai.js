@@ -208,40 +208,30 @@ export async function analyzeTodaysEmails(emails) {
     return (now - d) < oneDayMs
   })
 
-  // Cap at 50 emails to avoid taking too long, but process in batches of 10 to avoid TPM limits
-  const targetEmails = todaysEmails.slice(0, 50)
+  // Limit to at most 10 emails to keep token count and TPM completely safe
+  const targetEmails = todaysEmails.slice(0, 10)
   if (targetEmails.length === 0) return []
 
-  const BATCH_SIZE = 10
-  const allResults = []
+  const summaries = targetEmails.map(e =>
+    `ID:${e.id} From:${e.senderName} Sub:${e.subject} Snip:${(e.snippet || '').slice(0, 100)}`
+  ).join('\n')
 
-  for (let i = 0; i < targetEmails.length; i += BATCH_SIZE) {
-    const batch = targetEmails.slice(i, i + BATCH_SIZE)
-    const summaries = batch.map(e =>
-      `ID:${e.id} From:${e.senderName} Sub:${e.subject} Snip:${(e.snippet || '').slice(0, 100)}`
-    ).join('\n')
-
-    try {
-      const response = await aiComplete(
-        'You are an email analyzer. Return ONLY a valid JSON array. Do not include markdown code blocks. Each object in the array must have: {id: string, urgency: "high"|"medium"|"low", summary: "1 short sentence", actionItem: "short action or No action needed"}.',
-        summaries
-      )
-      let cleaned = response.trim()
-      if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7)
-      if (cleaned.startsWith('```')) cleaned = cleaned.slice(3)
-      if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3)
-      
-      const parsed = JSON.parse(cleaned.trim())
-      if (Array.isArray(parsed)) {
-        allResults.push(...parsed)
-      }
-    } catch (err) {
-      console.error('Batch analysis failed for chunk', i, err)
-      // Continue processing other chunks even if one fails
-    }
+  try {
+    const response = await aiComplete(
+      'You are an email analyzer. Return ONLY a valid JSON array. Do not include markdown code blocks. Each object in the array must have: {id: string, urgency: "high"|"medium"|"low", summary: "1 short sentence", actionItem: "short action or No action needed"}.',
+      summaries
+    )
+    let cleaned = response.trim()
+    if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7)
+    if (cleaned.startsWith('```')) cleaned = cleaned.slice(3)
+    if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3)
+    
+    const parsed = JSON.parse(cleaned.trim())
+    return Array.isArray(parsed) ? parsed : []
+  } catch (err) {
+    console.error('Analysis failed:', err)
+    return []
   }
-
-  return allResults
 }
 
 // ─── Deep Search / RAG ID Retrieval ──────────────────────────────────────────
