@@ -4,7 +4,7 @@ import { analyzeTodaysEmails, streamChatWithAI, retrieveRelevantEmailIds } from 
 import './AIChatModal.css'
 
 export default function AIChatModal({ isOpen, onClose }) {
-  const { emails, user, toggleCompose, setSelectedEmail } = useMail()
+  const { emails, user, toggleCompose, selectEmail } = useMail()
   const [activeTab, setActiveTab] = useState('summary') // 'summary' | 'chat'
   
   // Summary State
@@ -92,61 +92,88 @@ export default function AIChatModal({ isOpen, onClose }) {
     const assistantMessageId = (Date.now() + 1).toString()
     setMessages(prev => [...prev, { id: assistantMessageId, sender: 'assistant', text: '', sources: messageSources }])
 
+    // Accumulate the full raw response (including any <agent> tag) outside React state
+    let fullRawText = ''
+
     try {
       await streamChatWithAI(updatedMessages, relevantEmails, (chunk) => {
+        fullRawText += chunk
+
+        // Bug 3 fix: strip any partial or complete <agent>...</agent> block before
+        // updating the display bubble so raw XML never appears character-by-character.
+        const displayText = fullRawText
+          .replace(/<agent>[\s\S]*?<\/agent>/gi, '') // complete tags already received
+          .replace(/<agent>[\s\S]*$/i, '')           // partial opening tag still streaming
+          .trimEnd()
+
         setMessages(prev => {
-          const newMessages = [...prev]
-          const lastIndex = newMessages.length - 1
-          const lastMsg = newMessages[lastIndex]
+          const next = [...prev]
+          const lastIndex = next.length - 1
+          const lastMsg = next[lastIndex]
           if (lastMsg && lastMsg.id === assistantMessageId) {
-            newMessages[lastIndex] = { ...lastMsg, text: lastMsg.text + chunk }
+            // Bug 2 fix: spread to create a new object — never mutate in place
+            next[lastIndex] = { ...lastMsg, text: displayText }
           }
-          return newMessages
+          return next
         })
       })
 
-      // Post-streaming Agentic Command Interception
-      setMessages(prev => {
-        const newMessages = [...prev]
-        const lastMsg = newMessages[newMessages.length - 1]
-        
-        if (lastMsg && lastMsg.text && lastMsg.id === assistantMessageId) {
-          const agentMatch = lastMsg.text.match(/<agent>([\s\S]*?)<\/agent>/)
-          if (agentMatch) {
-            try {
-              const command = JSON.parse(agentMatch[1])
-              lastMsg.text = lastMsg.text.replace(/<agent>[\s\S]*?<\/agent>/, '').trim()
-              if (!lastMsg.text) {
-                lastMsg.text = "Executing action..."
+      // ── Post-streaming: Agentic Command Interception ──────────────────────
+      // Parse from the full buffered raw text, not the cleaned display version
+      const agentMatch = fullRawText.match(/<agent>([\s\S]*?)<\/agent>/i)
+
+      if (agentMatch) {
+        try {
+          const command = JSON.parse(agentMatch[1].trim())
+
+          // Final clean display text with agent tag removed
+          const cleanedDisplay = fullRawText
+            .replace(/<agent>[\s\S]*?<\/agent>/gi, '')
+            .trim()
+
+          // Update bubble immutably (Bug 2 fix)
+          setMessages(prev => {
+            const next = [...prev]
+            const idx = next.findIndex(m => m.id === assistantMessageId)
+            if (idx !== -1) {
+              next[idx] = {
+                ...next[idx],
+                text: cleanedDisplay || 'Done! Opening action…',
               }
-              
-              if (command.action === 'DRAFT_REPLY') {
-                const targetEmail = emails.find(e => e.id === command.emailId)
-                setTimeout(() => {
-                  toggleCompose({
-                    to: targetEmail ? targetEmail.senderEmail : command.to || '',
-                    subject: targetEmail ? `Re: ${targetEmail.subject}` : command.subject || '',
-                    body: command.content
-                  })
-                  onClose()
-                }, 1000)
-              }
-            } catch (e) {
-              console.error("Failed to parse agentic command:", e)
+            }
+            return next
+          })
+
+          // Execute agentic action
+          if (command.action === 'DRAFT_REPLY') {
+            const targetEmail = emails.find(e => e.id === command.emailId)
+            toggleCompose({
+              to: targetEmail ? targetEmail.senderEmail : command.to || '',
+              subject: targetEmail
+                ? (targetEmail.subject?.startsWith('Re:') ? targetEmail.subject : `Re: ${targetEmail.subject}`)
+                : command.subject || '',
+              body: command.content || '',
+            })
+            onClose()
+          } else if (command.action === 'VIEW_MAIL') {
+            const targetEmail = emails.find(e => e.id === command.emailId)
+            if (targetEmail) {
+              selectEmail(targetEmail)
+              onClose()
             }
           }
+        } catch (parseErr) {
+          console.error('[ZwoopAI] Failed to parse agentic command:', parseErr, agentMatch[1])
         }
-        return newMessages
-      })
+      }
 
     } catch (err) {
-      console.error("Chat streaming failed", err)
+      console.error('[ZwoopAI] Chat streaming failed:', err)
       setMessages(prev => {
         const newMessages = [...prev]
-        const lastMsg = newMessages[newMessages.length - 1]
-        if (lastMsg && lastMsg.id === assistantMessageId) {
-          lastMsg.text = "Error: Failed to connect to AI. Please check API keys or network."
-          lastMsg.isError = true
+        const lastIndex = newMessages.findIndex(m => m.id === assistantMessageId)
+        if (lastIndex !== -1) {
+          newMessages[lastIndex] = { ...newMessages[lastIndex], text: '', isError: true }
         }
         return newMessages
       })
@@ -242,7 +269,7 @@ export default function AIChatModal({ isOpen, onClose }) {
                         }}>Draft Reply</button>
                         <button className="card-btn secondary" onClick={() => {
                           onClose()
-                          setSelectedEmail(email)
+                          selectEmail(email)
                         }}>View Mail</button>
                       </div>
                     </div>
@@ -288,16 +315,22 @@ export default function AIChatModal({ isOpen, onClose }) {
                     <div className="ai-avatar-sparkle">✦</div>
                   )}
                   <div className="ai-message-body">
-                    <div className={`ai-chat-bubble ${msg.isError ? 'ai-chat-error-banner' : ''}`}>
-                      <div className="ai-markdown-content" style={{ whiteSpace: 'pre-wrap' }}>
-                        {msg.text || (isChatLoading && msg.sender === 'assistant' ? (
-                          <div className="loading">
-                            <span className="typing-dot"></span>
-                            <span className="typing-dot"></span>
-                            <span className="typing-dot"></span>
-                          </div>
-                        ) : '')}
-                      </div>
+                    <div className="ai-chat-bubble">
+                      {msg.isError ? (
+                        <div className="ai-error-badge">
+                          <span>⚠</span> AI unavailable — check browser console for details
+                        </div>
+                      ) : (
+                        <div className="ai-markdown-content" style={{ whiteSpace: 'pre-wrap' }}>
+                          {msg.text || (isChatLoading && msg.sender === 'assistant' ? (
+                            <div className="loading">
+                              <span className="typing-dot"></span>
+                              <span className="typing-dot"></span>
+                              <span className="typing-dot"></span>
+                            </div>
+                          ) : '')}
+                        </div>
+                      )}
                     </div>
                     {msg.text && (
                       <span className="ai-msg-time">
@@ -312,7 +345,7 @@ export default function AIChatModal({ isOpen, onClose }) {
                             key={src.id} 
                             className="ai-source-pill"
                             onClick={() => {
-                              setSelectedEmail(src.email)
+                              selectEmail(src.email)
                               onClose()
                             }}
                             style={{

@@ -35,13 +35,17 @@ function ShadowHtmlView({ html }) {
 }
 
 function EmailMessageStep({ message, user }) {
-  const text = message.bodyText || message.snippet || ''
-  const replySplitRegex = /(?:On\s+.*?\s+wrote:|-------- Original Message --------|________________________________)/i
-  const parts = text.split(replySplitRegex)
-  let latestText = (parts[0] || '').trim()
-  latestText = latestText.replace(/[\r\n]+/g, '\n').trim()
-
   const isMe = user && user.emailAddress && message.from && message.from.toLowerCase().includes(user.emailAddress.toLowerCase())
+
+  // Prefer rendered HTML; fall back to clean plain text
+  const hasHtml = Boolean(message.bodyHtml)
+  let displayText = ''
+  if (!hasHtml) {
+    const text = message.bodyText || message.snippet || ''
+    const replySplitRegex = /(?:On\s+.*?\s+wrote:|-------- Original Message --------|________________________________)/i
+    const parts = text.split(replySplitRegex)
+    displayText = (parts[0] || '').trim().replace(/[\r\n]+/g, '\n').trim()
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', marginBottom: '16px' }}>
@@ -56,10 +60,15 @@ function EmailMessageStep({ message, user }) {
           border: isMe ? 'none' : '1px solid var(--color-border)',
           fontSize: '0.95em',
           lineHeight: '1.5',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word'
+          wordBreak: 'break-word',
+          maxWidth: '100%',
+          width: hasHtml ? '480px' : undefined,
         }}>
-          {latestText}
+          {hasHtml ? (
+            <ShadowHtmlView html={message.bodyHtml} />
+          ) : (
+            <span style={{ whiteSpace: 'pre-wrap' }}>{displayText}</span>
+          )}
         </div>
       </div>
       <div style={{ 

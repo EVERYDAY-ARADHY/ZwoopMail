@@ -474,6 +474,23 @@
   cursor: pointer;
 }
 
+/* Subtle inline error badge — errors go to console, this is a minimal hint */
+.ai-error-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+  font-family: var(--font-mono);
+}
+
+.ai-error-badge span {
+  font-size: 14px;
+  color: #d97706;
+}
+
 /* Command execution badges */
 .ai-command-execution-badges {
   margin-top: 10px;

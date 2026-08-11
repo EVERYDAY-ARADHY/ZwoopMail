@@ -303,6 +303,14 @@ function decodeBase64Url(data) {
 }
 
 function stripHtml(html) {
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  return doc.body?.textContent?.trim() || ''
+  // Remove MSO/VML conditional comments and their contents before parsing
+  let cleaned = html
+    .replace(/<!--\[if[\s\S]*?\]-->[\s\S]*?<!--\[endif\]-->/gi, '')
+    .replace(/<!--\[if[\s\S]*?\]>/gi, '')
+    .replace(/<\!\[endif\]-->/gi, '')
+    // Remove style and script blocks entirely
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+  const doc = new DOMParser().parseFromString(cleaned, 'text/html')
+  return doc.body?.textContent?.replace(/\s+/g, ' ').trim() || ''
 }
