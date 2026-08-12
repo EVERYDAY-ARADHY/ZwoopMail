@@ -31,3 +31,5 @@ npm-debug.log*
 *.mov
 ZWOOP*.png
 ZWOOP*.jpg
+*.jpeg
+*.jpg
