@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useMail } from '../../context/MailContext'
 import { parseSearchQuery } from '../../api/ai'
 import './TopBar.css'
@@ -9,7 +9,17 @@ const COMMIT_COUNT = 57 // current commit will be 57 after this push
 const APP_VERSION = `v0.${Math.floor(COMMIT_COUNT / 10)}.${COMMIT_COUNT % 10}`
 
 export default function TopBar({ onSearch, onHamburgerClick, onOpenAI }) {
-  const { searchQuery, dispatch, accessToken } = useMail()
+  const [quickOpen, setQuickOpen] = useState(false)
+  const quickRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (quickRef.current && !quickRef.current.contains(e.target)) setQuickOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+  const { searchQuery, dispatch, accessToken, setActiveStream } = useMail()
   const [inputValue, setInputValue] = useState('')
   const [isParsing, setIsParsing] = useState(false)
 
@@ -87,13 +97,30 @@ export default function TopBar({ onSearch, onHamburgerClick, onOpenAI }) {
 
       <div className="topbar-actions">
         <span className="topbar-version font-mono" title={`ZwoopMail ${APP_VERSION}`}>{APP_VERSION}</span>
-        <button 
-          className="topbar-ask-ai-btn"
-          onClick={onOpenAI}
-          title="Open Zwoop Intelligence"
-        >
-          <span className="ai-sparkle">✦</span> Ask AI
-        </button>
+
+        {/* Quick dropdown */}
+        <div className="topbar-quick-wrapper" ref={quickRef}>
+          <button
+            className={`topbar-quick-btn ${quickOpen ? 'open' : ''}`}
+            onClick={() => setQuickOpen(o => !o)}
+            title="Quick links"
+          >
+            Quick <span className="topbar-quick-chevron">{quickOpen ? '▲' : '▼'}</span>
+          </button>
+          {quickOpen && (
+            <div className="topbar-quick-dropdown animate-fade-in">
+              {[['☆', 'starred', 'Starred'], ['▤', 'archived', 'Archived'], ['↗', 'sent', 'Sent'], ['✎', 'drafts', 'Drafts']].map(([icon, key, label]) => (
+                <button
+                  key={key}
+                  className="topbar-quick-item"
+                  onClick={() => { setActiveStream?.(key); setQuickOpen(false) }}
+                >
+                  <span>{icon}</span> {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )

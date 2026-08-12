@@ -5,7 +5,7 @@ import './Sidebar.css'
 
 const STREAMS = ['people', 'transactions', 'newsletters', 'notifications', 'promotions']
 
-export default function Sidebar({ emailCounts = {}, isOpen = false, onClose }) {
+export default function Sidebar({ emailCounts = {}, isOpen = false, onClose, onOpenAI }) {
   const { activeStream, setActiveStream, toggleCompose, toggleTheme, theme, user, logout, accessToken } = useMail()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -61,46 +61,19 @@ export default function Sidebar({ emailCounts = {}, isOpen = false, onClose }) {
         })}
       </div>
 
-      {/* Quick Links */}
+      {/* Ask AI Card — replaces Quick section */}
       <div className="sidebar-section">
-        <div className="sidebar-section-label">─── QUICK ─────</div>
         <button
-          className={`sidebar-link ${activeStream === 'starred' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveStream('starred')
-            onClose?.()
-          }}
+          className="sidebar-ask-ai-card"
+          onClick={onOpenAI}
+          title="Open Zwoop Intelligence"
         >
-          <span>☆</span> Starred
-        </button>
-        <button
-          className={`sidebar-link ${activeStream === 'archived' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveStream('archived')
-            onClose?.()
-          }}
-        >
-          <span>▤</span> Archived
-        </button>
-        <button
-          className={`sidebar-link ${activeStream === 'sent' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveStream('sent')
-            onClose?.()
-          }}
-        >
-          <span>↗</span> Sent
-        </button>
-        <button
-          className={`sidebar-link ${activeStream === 'drafts' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveStream('drafts')
-            onClose?.()
-          }}
-        >
-          <span>✎</span> Drafts
+          <span className="sidebar-ask-ai-sparkle">✦</span>
+          <span className="sidebar-ask-ai-label">Ask It</span>
+          <span className="sidebar-ask-ai-sub">AI-powered inbox</span>
         </button>
       </div>
+
 
       {/* Footer & User Area */}
       <div className="sidebar-footer" ref={menuRef}>

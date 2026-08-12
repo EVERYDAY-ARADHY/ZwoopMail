@@ -135,7 +135,11 @@
   user-select: none;
 }
 
-.topbar-ask-ai-btn {
+.topbar-quick-wrapper {
+  position: relative;
+}
+
+.topbar-quick-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -151,14 +155,54 @@
   transition: all 0.2s ease;
 }
 
-.topbar-ask-ai-btn:hover {
-  border-color: var(--color-ember, #fc5000);
-  box-shadow: 0 2px 8px rgba(252, 80, 0, 0.1);
+.topbar-quick-btn:hover,
+.topbar-quick-btn.open {
+  border-color: var(--color-ember);
+  background-color: var(--color-ember-subtle);
 }
 
-.topbar-ask-ai-btn .ai-sparkle {
-  color: var(--color-ember, #fc5000);
-  font-size: 14px;
+.topbar-quick-chevron {
+  font-size: 9px;
+  opacity: 0.6;
+}
+
+.topbar-quick-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 150px;
+  background-color: var(--color-surface);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  padding: var(--space-2);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.topbar-quick-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 7px var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.topbar-quick-item:hover {
+  background-color: var(--color-ember-subtle);
+  color: var(--color-ember);
 }
 
 /* Version badge */

@@ -188,7 +188,7 @@ function AppContent() {
       {sidebarOpen && (
         <div className="sidebar-overlay" onClick={closeSidebar} />
       )}
-      <Sidebar emailCounts={emailCounts} isOpen={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar emailCounts={emailCounts} isOpen={sidebarOpen} onClose={closeSidebar} onOpenAI={() => setAiModalOpen(true)} />
       <main className="app-main">
         <TopBar onHamburgerClick={toggleSidebar} onOpenAI={() => setAiModalOpen(true)} />
         <div className={`app-content ${selectedEmail ? 'has-selected-email' : ''}`}>
