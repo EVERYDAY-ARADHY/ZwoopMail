@@ -4,10 +4,11 @@
 
 .app-layout {
   display: flex;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   background-color: var(--color-bg);
   position: relative;
+  overflow: hidden;
 }
 
 .app-main {

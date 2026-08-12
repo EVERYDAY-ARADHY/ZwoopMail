@@ -44,7 +44,7 @@ export default function EmailList() {
 
   return (
     <div className="email-list">
-      {/* Stream Header */}
+      {/* Stream Header — always visible, never scrolls */}
       <div className="email-list-header">
         <div className="email-list-stream-info">
           <span className="email-list-stream-icon">{config?.icon}</span>
@@ -53,24 +53,24 @@ export default function EmailList() {
         </div>
       </div>
 
-      {/* AI Urgent Attention Priority Bar */}
-      <NeedsAttention />
-
-      {/* Email Items */}
-      {displayEmails.length === 0 ? (
-        <EmptyState stream={activeStream} />
-      ) : (
-        <div className="email-list-items stagger-children">
-          {displayEmails.map((email) => (
-            <EmailItem
-              key={email.id}
-              email={email}
-              isSelected={selectedEmail?.id === email.id}
-              onClick={selectEmail}
-            />
-          ))}
-        </div>
-      )}
+      {/* Scrollable area: urgent banner + email items scroll together */}
+      <div className="email-list-scroll">
+        <NeedsAttention />
+        {displayEmails.length === 0 ? (
+          <EmptyState stream={activeStream} />
+        ) : (
+          <div className="email-list-items stagger-children">
+            {displayEmails.map((email) => (
+              <EmailItem
+                key={email.id}
+                email={email}
+                isSelected={selectedEmail?.id === email.id}
+                onClick={selectEmail}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

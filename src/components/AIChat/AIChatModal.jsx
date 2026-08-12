@@ -11,6 +11,10 @@ export default function AIChatModal({ isOpen, onClose }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [emailAnalysis, setEmailAnalysis] = useState([])
   const [hasAnalyzed, setHasAnalyzed] = useState(false)
+  const [analysisError, setAnalysisError] = useState(null)
+  const [draftingReplyFor, setDraftingReplyFor] = useState(null) // emailId currently being AI-drafted
+  const [contextFor, setContextFor] = useState(null)             // emailId whose context panel is open
+  const [contextText, setContextText] = useState('')             // user's preference/context input
 
   // Chat State
   const [messages, setMessages] = useState([])
@@ -20,11 +24,14 @@ export default function AIChatModal({ isOpen, onClose }) {
   const chatEndRef = useRef(null)
 
   // Fetch analysis when opening the summary tab for the first time
+  // NOTE: emails.length (not emails ref) avoids re-triggering on every render
+  const emailCount = emails.length
   useEffect(() => {
-    if (isOpen && activeTab === 'summary' && !hasAnalyzed && emails.length > 0) {
+    if (isOpen && activeTab === 'summary' && !hasAnalyzed && emailCount > 0) {
       handleAnalyze()
     }
-  }, [isOpen, activeTab, hasAnalyzed, emails])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeTab, hasAnalyzed, emailCount])
 
   // Scroll to bottom of chat
   useEffect(() => {
@@ -37,14 +44,94 @@ export default function AIChatModal({ isOpen, onClose }) {
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true)
+    setAnalysisError(null)
     try {
       const results = await analyzeTodaysEmails(emails)
-      setEmailAnalysis(results)
-      setHasAnalyzed(true)
+      if (!results || results.length === 0) {
+        // Treat empty result as a soft failure so we show a retry option
+        setAnalysisError('no_results')
+      } else {
+        setEmailAnalysis(results)
+      }
     } catch (err) {
-      console.error("Failed to analyze emails", err)
+      console.error('[ZwoopAI] Failed to analyze emails:', err)
+      setAnalysisError(err?.message || 'unknown_error')
     } finally {
+      // Always mark as "attempted" so the useEffect doesn't loop indefinitely
+      setHasAnalyzed(true)
       setIsAnalyzing(false)
+    }
+  }
+
+  // ── AI Agentic Draft Reply (triggered from Analysis cards) ─────────────────
+  const handleAgenticDraftReply = async (email, userContext) => {
+    setContextFor(null)
+    setContextText('')
+
+    // 1. Switch to chat tab so user sees the action happening
+    setActiveTab('chat')
+
+    // 2. Build the human-readable query shown in chat
+    const contextSuffix = userContext?.trim() ? ` Preferences: "${userContext.trim()}"` : ''
+    const displayQuery = `Draft a reply to "${email.subject}" from ${email.senderName}.${contextSuffix}`
+
+    // 3. Build the actual AI prompt (full detail, not shown in chat)
+    const contextClause = userContext?.trim()
+      ? `\n\nUser's preferences / context for this reply:\n"${userContext.trim()}"`
+      : ''
+    const aiPrompt = `Draft a professional reply to this email from ${email.senderName}. Subject: "${email.subject}".${contextClause}\n\nReturn ONLY the reply body text — no greetings unless specified, no labels, no extra commentary.`
+
+    // 4. Add the user message + a pending assistant message to chat
+    const userMsgId = `draft-user-${Date.now()}`
+    const assistantMsgId = `draft-ai-${Date.now() + 1}`
+    setMessages(prev => [
+      ...prev,
+      { id: userMsgId,     sender: 'user',      text: displayQuery },
+      { id: assistantMsgId, sender: 'assistant', text: '', isDraftPending: true },
+    ])
+    setDraftingReplyFor(email.id)
+
+    // 5. Stream the reply body silently — never displayed in the chat bubble
+    let draftBody = ''
+    try {
+      await streamChatWithAI(
+        [{ sender: 'user', text: aiPrompt }],
+        [email],
+        (chunk) => { draftBody += chunk }
+      )
+      draftBody = draftBody.replace(/<agent>[\s\S]*?<\/agent>/gi, '').trim()
+    } catch (err) {
+      console.error('[ZwoopAI] Agentic draft failed:', err)
+    } finally {
+      setDraftingReplyFor(null)
+    }
+
+    // 6. Update assistant bubble to a confirmation message (no raw reply shown)
+    setMessages(prev => {
+      const next = [...prev]
+      const idx = next.findIndex(m => m.id === assistantMsgId)
+      if (idx !== -1) {
+        next[idx] = {
+          ...next[idx],
+          text: draftBody
+            ? `✓ Reply drafted for "${email.subject}" — opening compose now…`
+            : '⚠ Drafting failed. Please try again from the Inbox Analysis tab.',
+          isDraftPending: false,
+        }
+      }
+      return next
+    })
+
+    // 7. Brief pause so user sees the confirmation, then open Compose
+    if (draftBody) {
+      setTimeout(() => {
+        onClose()
+        toggleCompose({
+          to: email.senderEmail || '',
+          subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
+          body: draftBody,
+        })
+      }, 900)
     }
   }
 
@@ -258,27 +345,90 @@ export default function AIChatModal({ isOpen, onClose }) {
                         </div>
                       )}
                       
-                      <div className="card-footer-btns">
-                        <button className="card-btn primary" onClick={() => {
-                          onClose()
-                          toggleCompose({
-                            to: email.senderEmail || '',
-                            subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
-                            body: `\n\nOn ${new Date(email.date).toLocaleDateString()}, ${email.senderName} wrote:\n> ${(email.bodyText || email.snippet || '').slice(0, 300)}`
-                          })
-                        }}>Draft Reply</button>
-                        <button className="card-btn secondary" onClick={() => {
-                          onClose()
-                          selectEmail(email)
-                        }}>View Mail</button>
-                      </div>
+                      {/* Context panel — expands when user clicks AI Draft Reply */}
+                      {contextFor === email.id ? (
+                        <div className="draft-context-panel">
+                          <label className="draft-context-label font-mono">
+                            <span style={{ color: 'var(--color-ember)' }}>✦</span> What should the reply say? (optional)
+                          </label>
+                          <textarea
+                            className="draft-context-input"
+                            placeholder={'e.g. "Tell them I\'ll follow up next week. Keep it short and friendly."'}
+                            value={contextText}
+                            onChange={e => setContextText(e.target.value)}
+                            rows={3}
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                handleAgenticDraftReply(email, contextText)
+                              }
+                            }}
+                          />
+                          <div className="draft-context-actions">
+                            <button
+                              className="card-btn secondary"
+                              onClick={() => { setContextFor(null); setContextText('') }}
+                            >Cancel</button>
+                            <button
+                              className="card-btn primary"
+                              onClick={() => handleAgenticDraftReply(email, contextText)}
+                              disabled={!!draftingReplyFor}
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              {draftingReplyFor === email.id ? (
+                                <><span style={{ display: 'inline-block', animation: 'ai-spin 0.8s linear infinite' }}>✦</span> Drafting...</>
+                              ) : '✦ Generate Draft'}
+                            </button>
+                          </div>
+                          <span className="draft-context-hint font-mono">⌘↵ to generate</span>
+                        </div>
+                      ) : (
+                        <div className="card-footer-btns">
+                          <button
+                            className="card-btn primary"
+                            onClick={() => { setContextFor(email.id); setContextText('') }}
+                            disabled={!!draftingReplyFor}
+                            style={{ minWidth: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                          >
+                            {draftingReplyFor === email.id ? (
+                              <><span style={{ display: 'inline-block', animation: 'ai-spin 0.8s linear infinite' }}>✦</span> Drafting...</>
+                            ) : '✦ AI Draft Reply'}
+                          </button>
+                          <button className="card-btn secondary" onClick={() => {
+                            onClose()
+                            selectEmail(email)
+                          }}>View Mail</button>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
               </div>
+            ) : analysisError ? (
+              <div className="ai-summary-loading">
+                <div style={{ fontSize: '28px', marginBottom: '12px' }}>⚠️</div>
+                <p style={{ fontWeight: 600, marginBottom: '6px' }}>
+                  {analysisError === 'no_results'
+                    ? 'No emails to analyze in the last 7 days.'
+                    : 'AI Analysis failed — the model may be busy.'}
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '18px', maxWidth: '300px', textAlign: 'center' }}>
+                  {analysisError === 'no_results'
+                    ? 'Try again later or check back when new mail arrives.'
+                    : `Error: ${analysisError}`}
+                </p>
+                <button
+                  className="ai-refresh-btn font-mono"
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing}
+                  style={{ margin: '0 auto' }}
+                >
+                  ↻ Retry Analysis
+                </button>
+              </div>
             ) : (
               <div className="ai-summary-loading">
-                <p>No emails found to analyze, or analysis failed.</p>
+                <p>No emails found. Make sure your inbox has mail and try refreshing.</p>
               </div>
             )}
           </div>
@@ -319,6 +469,11 @@ export default function AIChatModal({ isOpen, onClose }) {
                       {msg.isError ? (
                         <div className="ai-error-badge">
                           <span>⚠</span> AI unavailable — check browser console for details
+                        </div>
+                      ) : msg.isDraftPending ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+                          <span style={{ display: 'inline-block', animation: 'ai-spin 0.8s linear infinite', color: 'var(--color-ember)' }}>✦</span>
+                          Drafting your reply silently…
                         </div>
                       ) : (
                         <div className="ai-markdown-content" style={{ whiteSpace: 'pre-wrap' }}>

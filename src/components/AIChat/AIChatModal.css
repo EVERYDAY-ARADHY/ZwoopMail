@@ -3,6 +3,11 @@
  * Built for ZwoopMail
  */
 
+@keyframes ai-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 .ai-modal-backdrop {
   position: fixed;
   top: 0;
@@ -288,6 +293,79 @@
 .card-btn:hover {
   opacity: 0.9;
   transform: translateY(-1px);
+}
+
+.card-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Draft Context Panel ───────────────────────────────────────────────────── */
+.draft-context-panel {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-left: 3px solid var(--color-ember);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: context-slide-in 0.18s ease;
+}
+
+@keyframes context-slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+.draft-context-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+}
+
+.draft-context-input {
+  width: 100%;
+  resize: none;
+  padding: 8px 10px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  transition: border-color 0.15s ease;
+}
+
+.draft-context-input:focus {
+  border-color: var(--color-ember);
+  outline: none;
+}
+
+.draft-context-input::placeholder {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.draft-context-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.draft-context-hint {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  text-align: right;
+  letter-spacing: 0.04em;
 }
 
 /* TAB 2: CHAT SECTION */
