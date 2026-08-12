@@ -39,10 +39,17 @@
   border-radius: var(--radius-pill);
 }
 
-/* Items */
-.email-list-items {
+/* Scrollable wrapper — header and attention banner are OUTSIDE this */
+.email-list-scroll {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Items */
+.email-list-items {
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Responsive: Tablet ── */

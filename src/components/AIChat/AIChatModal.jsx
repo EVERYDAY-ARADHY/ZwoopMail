@@ -12,6 +12,7 @@ export default function AIChatModal({ isOpen, onClose }) {
   const [emailAnalysis, setEmailAnalysis] = useState([])
   const [hasAnalyzed, setHasAnalyzed] = useState(false)
   const [analysisError, setAnalysisError] = useState(null)
+  const [draftingReplyFor, setDraftingReplyFor] = useState(null) // emailId currently being AI-drafted
 
   // Chat State
   const [messages, setMessages] = useState([])
@@ -58,6 +59,31 @@ export default function AIChatModal({ isOpen, onClose }) {
       setHasAnalyzed(true)
       setIsAnalyzing(false)
     }
+  }
+
+  // ── AI Agentic Draft Reply (triggered from Analysis cards) ─────────────────
+  const handleAgenticDraftReply = async (email) => {
+    setDraftingReplyFor(email.id)
+    const prompt = `Draft a professional reply to this email from ${email.senderName}. Subject: "${email.subject}". Return ONLY the reply body text with no extra commentary.`
+    let draftBody = ''
+    try {
+      await streamChatWithAI(
+        [{ sender: 'user', text: prompt }],
+        [email],
+        (chunk) => { draftBody += chunk }
+      )
+      draftBody = draftBody.replace(/<agent>[\s\S]*?<\/agent>/gi, '').trim()
+    } catch (err) {
+      console.error('[ZwoopAI] Agentic draft failed:', err)
+    } finally {
+      setDraftingReplyFor(null)
+    }
+    onClose()
+    toggleCompose({
+      to: email.senderEmail || '',
+      subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
+      body: draftBody,
+    })
   }
 
   const handleSendMessage = async (e, text = inputMessage) => {
@@ -271,14 +297,19 @@ export default function AIChatModal({ isOpen, onClose }) {
                       )}
                       
                       <div className="card-footer-btns">
-                        <button className="card-btn primary" onClick={() => {
-                          onClose()
-                          toggleCompose({
-                            to: email.senderEmail || '',
-                            subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
-                            body: `\n\nOn ${new Date(email.date).toLocaleDateString()}, ${email.senderName} wrote:\n> ${(email.bodyText || email.snippet || '').slice(0, 300)}`
-                          })
-                        }}>Draft Reply</button>
+                        <button
+                          className="card-btn primary"
+                          onClick={() => handleAgenticDraftReply(email)}
+                          disabled={!!draftingReplyFor}
+                          style={{ minWidth: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        >
+                          {draftingReplyFor === email.id ? (
+                            <>
+                              <span style={{ display: 'inline-block', animation: 'ai-spin 0.8s linear infinite' }}>✦</span>
+                              Drafting...
+                            </>
+                          ) : '✦ AI Draft Reply'}
+                        </button>
                         <button className="card-btn secondary" onClick={() => {
                           onClose()
                           selectEmail(email)

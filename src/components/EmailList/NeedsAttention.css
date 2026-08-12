@@ -2,6 +2,8 @@
   padding: var(--space-4) var(--space-4) 0;
   background-color: var(--color-surface);
   border-bottom: 1.5px dashed var(--color-border-strong);
+  flex-shrink: 0;
+  z-index: 2;
 }
 
 .attention-header {

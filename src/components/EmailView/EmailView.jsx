@@ -211,7 +211,6 @@ export default function EmailView() {
             onClick={() => toggleCompose({
               to: email.senderEmail || '',
               subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
-              body: `\n\nOn ${new Date(email.date).toLocaleDateString()}, ${email.senderName} wrote:\n> ${(email.bodyText || email.snippet || '').slice(0, 300)}`
             })}
           >Reply</Button>
           <Button

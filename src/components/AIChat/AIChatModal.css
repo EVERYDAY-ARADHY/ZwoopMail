@@ -3,6 +3,11 @@
  * Built for ZwoopMail
  */
 
+@keyframes ai-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 .ai-modal-backdrop {
   position: fixed;
   top: 0;
