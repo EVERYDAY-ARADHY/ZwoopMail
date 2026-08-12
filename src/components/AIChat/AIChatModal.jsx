@@ -11,6 +11,7 @@ export default function AIChatModal({ isOpen, onClose }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [emailAnalysis, setEmailAnalysis] = useState([])
   const [hasAnalyzed, setHasAnalyzed] = useState(false)
+  const [analysisError, setAnalysisError] = useState(null)
 
   // Chat State
   const [messages, setMessages] = useState([])
@@ -20,11 +21,14 @@ export default function AIChatModal({ isOpen, onClose }) {
   const chatEndRef = useRef(null)
 
   // Fetch analysis when opening the summary tab for the first time
+  // NOTE: emails.length (not emails ref) avoids re-triggering on every render
+  const emailCount = emails.length
   useEffect(() => {
-    if (isOpen && activeTab === 'summary' && !hasAnalyzed && emails.length > 0) {
+    if (isOpen && activeTab === 'summary' && !hasAnalyzed && emailCount > 0) {
       handleAnalyze()
     }
-  }, [isOpen, activeTab, hasAnalyzed, emails])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeTab, hasAnalyzed, emailCount])
 
   // Scroll to bottom of chat
   useEffect(() => {
@@ -37,13 +41,21 @@ export default function AIChatModal({ isOpen, onClose }) {
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true)
+    setAnalysisError(null)
     try {
       const results = await analyzeTodaysEmails(emails)
-      setEmailAnalysis(results)
-      setHasAnalyzed(true)
+      if (!results || results.length === 0) {
+        // Treat empty result as a soft failure so we show a retry option
+        setAnalysisError('no_results')
+      } else {
+        setEmailAnalysis(results)
+      }
     } catch (err) {
-      console.error("Failed to analyze emails", err)
+      console.error('[ZwoopAI] Failed to analyze emails:', err)
+      setAnalysisError(err?.message || 'unknown_error')
     } finally {
+      // Always mark as "attempted" so the useEffect doesn't loop indefinitely
+      setHasAnalyzed(true)
       setIsAnalyzing(false)
     }
   }
@@ -276,9 +288,31 @@ export default function AIChatModal({ isOpen, onClose }) {
                   )
                 })}
               </div>
+            ) : analysisError ? (
+              <div className="ai-summary-loading">
+                <div style={{ fontSize: '28px', marginBottom: '12px' }}>⚠️</div>
+                <p style={{ fontWeight: 600, marginBottom: '6px' }}>
+                  {analysisError === 'no_results'
+                    ? 'No emails to analyze in the last 7 days.'
+                    : 'AI Analysis failed — the model may be busy.'}
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '18px', maxWidth: '300px', textAlign: 'center' }}>
+                  {analysisError === 'no_results'
+                    ? 'Try again later or check back when new mail arrives.'
+                    : `Error: ${analysisError}`}
+                </p>
+                <button
+                  className="ai-refresh-btn font-mono"
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing}
+                  style={{ margin: '0 auto' }}
+                >
+                  ↻ Retry Analysis
+                </button>
+              </div>
             ) : (
               <div className="ai-summary-loading">
-                <p>No emails found to analyze, or analysis failed.</p>
+                <p>No emails found. Make sure your inbox has mail and try refreshing.</p>
               </div>
             )}
           </div>
