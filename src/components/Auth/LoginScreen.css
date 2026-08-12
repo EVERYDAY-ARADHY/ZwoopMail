@@ -1,8 +1,8 @@
 .login-screen {
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   align-items: center;
-  justify-content: flex-end; /* Strictly drives content over to the far right flank! */
+  justify-content: flex-end;
   background-color: var(--color-bg);
   position: relative;
   overflow: hidden;
