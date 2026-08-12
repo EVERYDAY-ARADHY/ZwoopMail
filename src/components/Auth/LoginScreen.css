@@ -1,10 +1,13 @@
 .login-screen {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
   display: flex;
   align-items: center;
   justify-content: flex-end; /* Strictly drives content over to the far right flank! */
   background-color: var(--color-bg);
-  position: relative;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
   isolation: isolate;
   padding: var(--space-6) var(--space-4);
