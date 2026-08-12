@@ -25,6 +25,10 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [aiModalOpen, setAiModalOpen] = useState(false)
 
+  const closeAiModal = useCallback(() => {
+    setAiModalOpen(false)
+  }, [])
+
   const toggleSidebar = useCallback(() => {
     setSidebarOpen(prev => !prev)
   }, [])
@@ -206,7 +210,7 @@ function AppContent() {
       <FloatingChat />
       
       {/* AI Chat & Summary Modal */}
-      <AIChatModal isOpen={aiModalOpen} onClose={() => setAiModalOpen(false)} />
+      <AIChatModal isOpen={aiModalOpen} onClose={closeAiModal} />
     </div>
   )
 }

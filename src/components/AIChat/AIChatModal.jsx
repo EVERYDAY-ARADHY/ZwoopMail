@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useMail } from '../../context/MailContext'
 import { analyzeTodaysEmails, streamChatWithAI, streamDraftReply, retrieveRelevantEmailIds } from '../../api/ai'
 import './AIChatModal.css'
@@ -22,6 +22,9 @@ export default function AIChatModal({ isOpen, onClose }) {
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [useDeepSearch, setUseDeepSearch] = useState(true)
   const chatEndRef = useRef(null)
+
+  // Platform detection — memoised once per mount
+  const isMac = useMemo(() => /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform || navigator.userAgent), [])
 
   // Fetch analysis when opening the summary tab for the first time
   // NOTE: emails.length (not emails ref) avoids re-triggering on every render
@@ -127,11 +130,54 @@ export default function AIChatModal({ isOpen, onClose }) {
     }
   }
 
+  // ── Client-side draft intent detection ──────────────────────────────────────
+  // Phi-mini often fails to output <agent> tags reliably. We detect draft intent
+  // locally and route through streamDraftReply (the proven fast method that
+  // works perfectly in the Analysis tab) instead.
+  const detectDraftIntent = (query) => {
+    const q = query.toLowerCase()
+    const draftPatterns = [
+      /\b(draft|write|compose|create|send|prepare)\b.*\b(reply|response|email|mail|message|decline|acceptance|thank|follow.?up)\b/,
+      /\b(reply|respond|decline|accept|thank|follow.?up)\b.*\b(to|for|the|last|recent|latest|this|that)\b.*\b(email|mail|message)?\b/,
+      /\b(polite|formal|professional|casual|friendly|urgent)\b.*\b(decline|reply|response|email)\b/,
+      /\bdraft\b.*\b(polite|formal|professional|casual)\b/,
+      /\b(decline|accept|thank)\b.*\b(last|recent|latest|this)\b/,
+    ]
+    return draftPatterns.some(p => p.test(q))
+  }
+
+  // Find the best target email for a draft request from the search results
+  const findTargetEmail = (query, searchedEmails) => {
+    const q = query.toLowerCase()
+    // If user says "the last email" / "most recent" / "latest", use emails[0]
+    if (/\b(last|recent|latest|newest)\b/.test(q)) {
+      return emails[0] || searchedEmails[0] || null
+    }
+    // Otherwise use the first result from deep search (most relevant)
+    return searchedEmails[0] || emails[0] || null
+  }
+
+  // Extract user tone/preference hints from the draft query
+  const extractDraftContext = (query) => {
+    const q = query.toLowerCase()
+    const tones = []
+    if (/\bpolite\b/.test(q)) tones.push('polite')
+    if (/\bformal\b|\bprofessional\b/.test(q)) tones.push('formal')
+    if (/\bcasual\b|\bfriendly\b/.test(q)) tones.push('casual and friendly')
+    if (/\burgent\b/.test(q)) tones.push('urgent')
+    if (/\bdecline\b|\breject\b|\bturn down\b/.test(q)) tones.push('politely declining the request/offer')
+    if (/\baccept\b|\bagree\b|\bconfirm\b/.test(q)) tones.push('accepting/confirming')
+    if (/\bthank\b/.test(q)) tones.push('expressing gratitude')
+    if (/\bfollow.?up\b/.test(q)) tones.push('following up on the conversation')
+    return tones.length > 0 ? `Tone: ${tones.join(', ')}` : ''
+  }
+
   const handleSendMessage = async (e, text = inputMessage) => {
     if (e) e.preventDefault()
     if (!text.trim() || isChatLoading) return
 
-    const newMessage = { id: Date.now().toString(), sender: 'user', text: text.trim() }
+    const userQuery = text.trim()
+    const newMessage = { id: Date.now().toString(), sender: 'user', text: userQuery }
     const updatedMessages = [...messages, newMessage]
     setMessages(updatedMessages)
     setInputMessage('')
@@ -154,7 +200,7 @@ export default function AIChatModal({ isOpen, onClose }) {
           date: e.date
         }))
 
-        const relevantIds = await retrieveRelevantEmailIds(text.trim(), lightWeightEmails)
+        const relevantIds = await retrieveRelevantEmailIds(userQuery, lightWeightEmails)
         if (relevantIds && relevantIds.length > 0) {
           relevantEmails = emails.filter(e => relevantIds.includes(e.id))
           messageSources = relevantEmails.map(e => ({ id: e.id, subject: e.subject, senderName: e.senderName, email: e }))
@@ -167,22 +213,105 @@ export default function AIChatModal({ isOpen, onClose }) {
       setMessages(prev => prev.filter(m => m.id !== searchingMsgId))
     }
 
-    // Add empty assistant message that we will stream into
+    // ── Always include the most-recent email so "the last email" queries work ──
+    const mostRecentEmail = emails[0] // emails are sorted newest-first
+    if (mostRecentEmail && !relevantEmails.some(e => e.id === mostRecentEmail.id)) {
+      relevantEmails = [mostRecentEmail, ...relevantEmails]
+      if (!messageSources.some(s => s.id === mostRecentEmail.id)) {
+        messageSources = [
+          { id: mostRecentEmail.id, subject: mostRecentEmail.subject, senderName: mostRecentEmail.senderName, email: mostRecentEmail },
+          ...messageSources,
+        ]
+      }
+    }
+
+    // ── Check if this is a draft/reply request ────────────────────────────────
+    // If so, use streamDraftReply (the proven fast method from Analysis tab)
+    // instead of relying on phi-mini to output <agent> tags (which it often fails)
+    const isDraftRequest = detectDraftIntent(userQuery)
+
+    if (isDraftRequest) {
+      const targetEmail = findTargetEmail(userQuery, relevantEmails)
+
+      if (!targetEmail) {
+        // No email found to draft a reply for
+        const noEmailMsgId = (Date.now() + 1).toString()
+        setMessages(prev => [...prev, {
+          id: noEmailMsgId,
+          sender: 'assistant',
+          text: 'I couldn\'t find a matching email to draft a reply for. Try specifying the sender name or subject.',
+          sources: messageSources,
+        }])
+        setIsChatLoading(false)
+        return
+      }
+
+      // Show source pill + drafting indicator
+      const assistantMsgId = (Date.now() + 1).toString()
+      setMessages(prev => [...prev, {
+        id: assistantMsgId,
+        sender: 'assistant',
+        text: '',
+        isDraftPending: true,
+        sources: [{ id: targetEmail.id, subject: targetEmail.subject, senderName: targetEmail.senderName, email: targetEmail }],
+      }])
+
+      // Use the proven streamDraftReply method (same as Analysis tab)
+      const draftContext = extractDraftContext(userQuery)
+      let draftBody = ''
+      try {
+        await streamDraftReply(targetEmail, draftContext, (chunk) => { draftBody += chunk })
+        draftBody = draftBody.trim()
+      } catch (err) {
+        console.error('[ZwoopAI] Chat draft via streamDraftReply failed:', err)
+      }
+
+      // Update bubble with confirmation
+      setMessages(prev => {
+        const next = [...prev]
+        const idx = next.findIndex(m => m.id === assistantMsgId)
+        if (idx !== -1) {
+          next[idx] = {
+            ...next[idx],
+            text: draftBody
+              ? `<div class="ai-compose-transition"><span class="ai-sparkle-burst">✦</span> Reply drafted for "${targetEmail.subject}" — opening compose...</div>`
+              : '⚠ Drafting failed. Please try again or use the Inbox Analysis tab.',
+            isDraftPending: false,
+            isHtml: !!draftBody,
+          }
+        }
+        return next
+      })
+
+      // Open compose with the draft
+      if (draftBody) {
+        setTimeout(() => {
+          onClose()
+          toggleCompose({
+            to: targetEmail.senderEmail || '',
+            subject: targetEmail.subject?.startsWith('Re:') ? targetEmail.subject : `Re: ${targetEmail.subject || ''}`,
+            body: draftBody,
+          })
+        }, 900)
+      }
+
+      setIsChatLoading(false)
+      return
+    }
+
+    // ── General chat query (non-draft) — use streamChatWithAI ─────────────────
     const assistantMessageId = (Date.now() + 1).toString()
     setMessages(prev => [...prev, { id: assistantMessageId, sender: 'assistant', text: '', sources: messageSources }])
 
-    // Accumulate the full raw response (including any <agent> tag) outside React state
     let fullRawText = ''
 
     try {
       await streamChatWithAI(updatedMessages, relevantEmails, (chunk) => {
         fullRawText += chunk
 
-        // Bug 3 fix: strip any partial or complete <agent>...</agent> block before
-        // updating the display bubble so raw XML never appears character-by-character.
         const displayText = fullRawText
-          .replace(/<agent>[\s\S]*?<\/agent>/gi, '') // complete tags already received
-          .replace(/<agent>[\s\S]*$/i, '')           // partial opening tag still streaming
+          .replace(/<agent>[\s\S]*?<\/agent>/gi, '')
+          .replace(/<agent>[\s\S]*$/i, '')
           .trimEnd()
 
         setMessages(prev => {
@@ -190,27 +319,23 @@ export default function AIChatModal({ isOpen, onClose }) {
           const lastIndex = next.length - 1
           const lastMsg = next[lastIndex]
           if (lastMsg && lastMsg.id === assistantMessageId) {
-            // Bug 2 fix: spread to create a new object — never mutate in place
             next[lastIndex] = { ...lastMsg, text: displayText }
           }
           return next
         })
       })
 
-      // ── Post-streaming: Agentic Command Interception ──────────────────────
-      // Parse from the full buffered raw text, not the cleaned display version
+      // ── Post-streaming: Agentic Command Interception (fallback) ────────────
       const agentMatch = fullRawText.match(/<agent>([\s\S]*?)<\/agent>/i)
 
       if (agentMatch) {
         try {
           const command = JSON.parse(agentMatch[1].trim())
 
-          // Final clean display text with agent tag removed
           const cleanedDisplay = fullRawText
             .replace(/<agent>[\s\S]*?<\/agent>/gi, '')
             .trim()
 
-          // Update bubble immutably (Bug 2 fix)
           setMessages(prev => {
             const next = [...prev]
             const idx = next.findIndex(m => m.id === assistantMessageId)
@@ -223,7 +348,6 @@ export default function AIChatModal({ isOpen, onClose }) {
             return next
           })
 
-          // Execute agentic action
           if (command.action === 'DRAFT_REPLY') {
             const targetEmail = emails.find(e => e.id === command.emailId)
             toggleCompose({
@@ -372,7 +496,7 @@ export default function AIChatModal({ isOpen, onClose }) {
                               ) : '✦ Generate Draft'}
                             </button>
                           </div>
-                          <span className="draft-context-hint font-mono">⌘↵ to generate</span>
+                          <span className="draft-context-hint font-mono">{isMac ? '⌘' : 'Ctrl+'}↵ to generate</span>
                         </div>
                       ) : (
                         <div className="card-footer-btns">
@@ -467,6 +591,8 @@ export default function AIChatModal({ isOpen, onClose }) {
                           <span style={{ display: 'inline-block', animation: 'ai-spin 0.8s linear infinite', color: 'var(--color-ember)' }}>✦</span>
                           Drafting your reply silently…
                         </div>
+                      ) : msg.isHtml ? (
+                        <div className="ai-markdown-content" dangerouslySetInnerHTML={{ __html: msg.text }} />
                       ) : (
                         <div className="ai-markdown-content" style={{ whiteSpace: 'pre-wrap' }}>
                           {msg.text || (isChatLoading && msg.sender === 'assistant' ? (

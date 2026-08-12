@@ -5,6 +5,22 @@
  */
 
 const PROXY_URL = '/api/ai'
+
+// ─── Platform Detection ──────────────────────────────────────────────────────
+// Safari on macOS (and some older WebViews) lack ReadableStream on fetch Response.
+// Detect once at module load so streaming functions can skip the wasted first
+// request and go straight to the non-streaming fallback.
+const _supportsStreaming = (() => {
+  try {
+    // Check for ReadableStream and also that Response.body is defined
+    // (Safari may have ReadableStream but not expose it on fetch responses)
+    return typeof ReadableStream !== 'undefined'
+      && typeof Response !== 'undefined'
+      && 'body' in Response.prototype
+  } catch {
+    return false
+  }
+})()
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 // ─── Response Cache ───────────────────────────────────────────────────────────
@@ -190,14 +206,17 @@ export function cleanEmailThread(text) {
 // cooldown timer mid-stream, causing overlapping concurrent reads.
 export async function streamChatWithAI(chatMessages, emailContext, onChunk) {
   // Build compact context — up to 4 emails, 800 chars each
-  const ctx = (emailContext || []).slice(0, 4).map(e => {
+  // Tag the first email as [MOST RECENT] so the model can identify "the last email"
+  const ctx = (emailContext || []).slice(0, 4).map((e, idx) => {
     const rawText = e.bodyText || e.snippet || '';
     const cleaned = cleanEmailThread(rawText);
-    return `[ID:${e.id}] From: ${e.senderName} | Subject: ${e.subject}\n${cleaned.slice(0, 800)}`;
+    const recentTag = idx === 0 ? ' [MOST RECENT]' : '';
+    return `[ID:${e.id}]${recentTag} From: ${e.senderName} | Subject: ${e.subject}\n${cleaned.slice(0, 800)}`;
   }).join('\n\n---\n\n')
 
   const systemPrompt = `You are Zwoop AI, a smart email assistant. You have direct access to the user's emails shown below.
 Answer concisely. If info isn't in the context, say "I couldn't find that in your recent emails" — do not claim you lack access.
+When the user refers to "the last email" or "the most recent email", use the email marked [MOST RECENT].
 
 EMAILS IN CONTEXT:
 ${ctx || '(No emails provided for this query)'}
@@ -217,10 +236,13 @@ NEVER put the draft text outside the tag. NEVER skip the tag when drafting.`
     ...chatMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text })),
   ]
 
+  // ── Detect streaming support upfront (avoids wasted request on Safari/macOS) ──
+  const useStream = _supportsStreaming
+
   const res = await fetchWithRetry(PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, temperature: 0.4, max_tokens: 1024, stream: true }),
+    body: JSON.stringify({ messages, temperature: 0.4, max_tokens: 1024, stream: useStream }),
   })
 
   if (!res.ok) {
@@ -229,7 +251,7 @@ NEVER put the draft text outside the tag. NEVER skip the tag when drafting.`
   }
 
   // ── Streaming path (Chrome / Firefox / Edge) ──────────────────────────────
-  if (res.body && typeof res.body.getReader === 'function') {
+  if (useStream && res.body && typeof res.body.getReader === 'function') {
     const reader = res.body.getReader()
     const decoder = new TextDecoder('utf-8')
     while (true) {
@@ -247,20 +269,11 @@ NEVER put the draft text outside the tag. NEVER skip the tag when drafting.`
     return
   }
 
-  // ── Non-streaming fallback (Safari on macOS / older environments) ──────────
-  // Re-request without stream:true so we get a normal JSON response
-  console.warn('[ZwoopAI] ReadableStream not supported — falling back to non-streaming fetch')
-  const fallbackRes = await fetchWithRetry(PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, temperature: 0.4, max_tokens: 1024, stream: false }),
-  })
-  if (!fallbackRes.ok) {
-    const errorText = await fallbackRes.text()
-    throw new Error(`Phi-mini fallback error (${fallbackRes.status}): ${errorText}`)
-  }
-  const fallbackData = await fallbackRes.json()
-  const fullText = fallbackData.choices?.[0]?.message?.content || ''
+  // ── Non-streaming path (Safari on macOS / older environments) ──────────────
+  // Already requested with stream:false so no duplicate API call
+  if (!useStream) console.info('[ZwoopAI] Using non-streaming path (ReadableStream not supported)')
+  const data = await res.json()
+  const fullText = data.choices?.[0]?.message?.content || ''
   // Deliver as a single chunk so callers work identically
   if (fullText) onChunk(fullText)
 }
@@ -294,10 +307,13 @@ Write the reply body now.`
     { role: 'user',   content: userMessage },
   ]
 
+  // ── Detect streaming support upfront (avoids wasted request on Safari/macOS) ──
+  const useStream = _supportsStreaming
+
   const res = await fetchWithRetry(PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, temperature: 0.45, max_tokens: 800, stream: true }),
+    body: JSON.stringify({ messages, temperature: 0.45, max_tokens: 800, stream: useStream }),
   })
 
   if (!res.ok) {
@@ -306,7 +322,7 @@ Write the reply body now.`
   }
 
   // Streaming path (Chrome / Firefox / Edge)
-  if (res.body && typeof res.body.getReader === 'function') {
+  if (useStream && res.body && typeof res.body.getReader === 'function') {
     const reader = res.body.getReader()
     const decoder = new TextDecoder('utf-8')
     while (true) {
@@ -324,19 +340,10 @@ Write the reply body now.`
     return
   }
 
-  // Non-streaming fallback (Safari / macOS)
-  console.warn('[ZwoopAI] streamDraftReply: ReadableStream not supported — using fallback')
-  const fallbackRes = await fetchWithRetry(PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, temperature: 0.45, max_tokens: 800, stream: false }),
-  })
-  if (!fallbackRes.ok) {
-    const errorText = await fallbackRes.text()
-    throw new Error(`Draft reply fallback error (${fallbackRes.status}): ${errorText}`)
-  }
-  const fallbackData = await fallbackRes.json()
-  const body = fallbackData.choices?.[0]?.message?.content || ''
+  // Non-streaming path (Safari / macOS) — already requested with stream:false
+  if (!useStream) console.info('[ZwoopAI] streamDraftReply: using non-streaming path')
+  const data = await res.json()
+  const body = data.choices?.[0]?.message?.content || ''
   if (body) onChunk(body)
 }
 
