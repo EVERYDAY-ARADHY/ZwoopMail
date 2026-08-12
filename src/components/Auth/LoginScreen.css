@@ -1,3 +1,7 @@
+/* ============================================================================
+   LOGIN SCREEN — Fully Responsive for All Monitor Sizes
+   ============================================================================ */
+
 .login-screen {
   height: 100vh;
   height: 100dvh;
@@ -10,10 +14,11 @@
   inset: 0;
   overflow: hidden;
   isolation: isolate;
-  padding: var(--space-6) var(--space-4);
+  /* Fluid padding: tighter on small screens, generous on large */
+  padding: clamp(16px, 4vh, 48px) clamp(16px, 4vw, 64px);
 }
 
-/* Dot matrix background (Layer 0) */
+/* ── Dot matrix background (Layer 0) ── */
 .login-dots {
   position: absolute;
   inset: 0;
@@ -24,10 +29,7 @@
   pointer-events: none;
 }
 
-/* Atmospheric 3D ASCII Sculpture Screensaver on Bottom Left (Layer 1) 
-   REVOLUTIONARY FIX: Made the container 100% full-screen (inset: 0) so there are ZERO 
-   artificial CSS clipping boxes anywhere on your monitor! Three.js now handles placing 
-   the sculpture safely on the bottom-left without ever slicing off a single character! */
+/* ── 3D ASCII Sculpture — full-bleed background (Layer 1) ── */
 .login-3d-background-saver {
   position: absolute;
   inset: 0;
@@ -40,7 +42,7 @@
   overflow: hidden;
 }
 
-/* Primary Content Card (Layer 10 - Pushed cleanly to the far right edge of the monitor!) */
+/* ── Primary Content Card (Layer 10) ── */
 .login-content {
   position: relative;
   z-index: 10;
@@ -48,21 +50,24 @@
   flex-direction: column;
   align-items: flex-end;
   text-align: right;
-  padding: var(--space-8) 0;
-  max-width: 860px;
-  width: 100%;
+  /* Fluid width: takes up right ~45% on big monitors, more on smaller ones */
+  width: clamp(280px, 48vw, 820px);
+  max-width: 820px;
+  padding: clamp(16px, 3vh, 40px) 0;
   overflow: hidden;
   margin-left: auto;
-  margin-right: clamp(12px, 4vw, 65px);
+  margin-right: clamp(16px, 4vw, 72px);
+  gap: 0;
 }
 
-/* ASCII Logo */
+/* ── ASCII Logo ── */
 .login-logo {
   font-family: var(--font-mono);
-  font-size: clamp(6px, 1.25vw, 15px);
+  /* Fluid font: 7px on narrow screens → 15px cap on large */
+  font-size: clamp(7px, 1.1vw, 15px);
   line-height: 1.15;
   color: var(--color-ember);
-  margin-bottom: var(--space-8);
+  margin-bottom: clamp(16px, 3vh, 40px);
   user-select: none;
   white-space: pre;
   text-align: right;
@@ -72,33 +77,35 @@
   display: block;
 }
 
-/* Title */
+/* ── Title ── */
 .login-title {
   font-family: var(--font-display);
-  font-size: var(--text-4xl);
+  /* Fluid: 1.8rem on mobile → 3.5rem on large screens */
+  font-size: clamp(1.75rem, 4vw, 3.5rem);
   font-weight: var(--weight-regular);
   line-height: var(--leading-tight);
   color: var(--color-text);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tighter);
-  margin-bottom: var(--space-3);
+  margin-bottom: clamp(8px, 1.5vh, 16px);
   text-align: right;
 }
 
-/* Subtitle */
+/* ── Subtitle ── */
 .login-subtitle {
   font-family: var(--font-sans);
-  font-size: var(--text-lg);
+  /* Fluid: 0.9rem → 1.1rem */
+  font-size: clamp(0.875rem, 1.2vw, 1.1rem);
   color: var(--color-text-secondary);
-  max-width: 480px;
+  max-width: 460px;
   line-height: var(--leading-relaxed);
-  margin-bottom: var(--space-8);
+  margin-bottom: clamp(20px, 4vh, 40px);
   text-align: right;
 }
 
-/* CTA container */
+/* ── CTA ── */
 .login-cta {
-  margin-bottom: var(--space-8);
+  margin-bottom: clamp(16px, 3vh, 32px);
   z-index: 12;
   display: flex;
   justify-content: flex-end;
@@ -111,42 +118,79 @@
   background-color: color-mix(in srgb, #e05252 10%, transparent);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-base);
+  text-align: right;
 }
 
-/* Hackathon Credit box */
+/* ── Hackathon Credit ── */
 .login-credit {
-  font-size: 11px;
+  font-size: clamp(9px, 0.9vw, 11px);
   line-height: 1.6;
   color: var(--color-text-tertiary);
   text-align: right;
   opacity: 0.85;
+  white-space: pre;
 }
 
-@media (max-width: 960px) {
+/* ── Responsive: Tablet (≤1100px) ── */
+@media (max-width: 1100px) {
+  .login-content {
+    width: clamp(280px, 56vw, 680px);
+  }
+}
+
+/* ── Responsive: Small tablet / large phone (≤820px) ── */
+@media (max-width: 820px) {
   .login-screen {
     justify-content: center;
+    align-items: center;
+    padding: 24px 20px;
   }
+
   .login-content {
+    width: 100%;
+    max-width: 500px;
     margin-right: 0;
+    margin-left: 0;
     align-items: center;
     text-align: center;
   }
-}
 
-@media (max-width: 600px) {
+  .login-title,
+  .login-subtitle,
+  .login-credit {
+    text-align: center;
+  }
+
   .login-logo {
-    font-size: 9px;
+    text-align: center;
+    font-size: clamp(6px, 1.8vw, 12px);
   }
 
-  .login-title {
-    font-size: var(--text-2xl);
-  }
-
-  .login-subtitle {
-    font-size: var(--text-base);
+  .login-cta {
+    justify-content: center;
   }
 
   .login-3d-background-saver {
-    opacity: 0.65;
+    opacity: 0.35;
+  }
+}
+
+/* ── Responsive: Mobile (≤520px) ── */
+@media (max-width: 520px) {
+  .login-logo {
+    display: none; /* ASCII logo too cramped at very small sizes */
+  }
+
+  .login-title {
+    font-size: clamp(1.6rem, 7vw, 2.2rem);
+  }
+
+  .login-subtitle {
+    font-size: 0.9rem;
+    max-width: 90vw;
+  }
+
+  .login-3d-background-saver {
+    opacity: 0.2;
   }
 }
