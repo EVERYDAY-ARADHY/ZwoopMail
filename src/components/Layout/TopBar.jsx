@@ -3,6 +3,11 @@ import { useMail } from '../../context/MailContext'
 import { parseSearchQuery } from '../../api/ai'
 import './TopBar.css'
 
+// Version: increments by 1 per commit; tens digit flips every 10 commits.
+// Update COMMIT_COUNT after each push to keep this current.
+const COMMIT_COUNT = 57 // current commit will be 57 after this push
+const APP_VERSION = `v0.${Math.floor(COMMIT_COUNT / 10)}.${COMMIT_COUNT % 10}`
+
 export default function TopBar({ onSearch, onHamburgerClick, onOpenAI }) {
   const { searchQuery, dispatch, accessToken } = useMail()
   const [inputValue, setInputValue] = useState('')
@@ -81,6 +86,7 @@ export default function TopBar({ onSearch, onHamburgerClick, onOpenAI }) {
       </form>
 
       <div className="topbar-actions">
+        <span className="topbar-version font-mono" title={`ZwoopMail ${APP_VERSION}`}>{APP_VERSION}</span>
         <button 
           className="topbar-ask-ai-btn"
           onClick={onOpenAI}

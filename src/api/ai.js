@@ -184,11 +184,15 @@ Answer concisely. If info isn't in the context, say "I couldn't find that in you
 EMAILS IN CONTEXT:
 ${ctx || '(No emails provided for this query)'}
 
-AGENTIC ACTIONS: If asked to draft or reply to an email, output a tag on its own line:
+AGENTIC ACTIONS — MANDATORY FORMAT:
+If the user asks you to draft or reply to an email, you MUST output the following tag on its own line.
+Do NOT write the draft reply as plain text in your response — always use the tag.
+The tag must be on its own line, with EXACT syntax:
 <agent>{"action":"DRAFT_REPLY","emailId":"<exact-id>","content":"<full draft body>"}</agent>
 For viewing a specific email output:
 <agent>{"action":"VIEW_MAIL","emailId":"<exact-id>"}</agent>
-Always include a brief natural-language note before the tag explaining what you are doing.`
+Always include a brief natural-language sentence BEFORE the tag explaining what you are doing.
+NEVER put the draft text outside the tag. NEVER skip the tag when drafting.`
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -250,15 +254,21 @@ export async function detectUrgent(emails) {
 // ─── Compose Assist ──────────────────────────────────────────────────────────
 export async function composeAssist(text, action) {
   const actions = {
-    professional: 'Rewrite professionally.',
-    casual: 'Rewrite casually.',
-    shorter: 'Make significantly shorter.',
-    fix_grammar: 'Fix grammar and spelling only.',
-    friendly: 'Rewrite in a warm, friendly tone.',
-    urgent: 'Rewrite to clearly convey urgency.',
+    professional: 'Rewrite the following draft in a professional, formal business tone.',
+    casual:       'Rewrite the following draft in a relaxed, casual conversational tone.',
+    shorter:      'Make the following draft significantly shorter while keeping the core message.',
+    fix_grammar:  'Fix all grammar, spelling, and punctuation errors in the following draft. Change nothing else.',
+    friendly:     'Rewrite the following draft in a warm, friendly, approachable tone.',
+    urgent:       'Rewrite the following draft to clearly convey urgency and importance.',
   }
+  const instruction = actions[action] || actions.professional
   return aiComplete(
-    `${actions[action] || actions.professional} Return ONLY the rewritten text, no commentary or labels.`,
+    `${instruction}
+
+CRITICAL RULES:
+- You are editing/rewriting a DRAFT that the user is composing. This is NOT a reply task.
+- Do NOT generate a reply to any quoted email, do NOT add greetings or sign-offs, do NOT add new content.
+- Return ONLY the rewritten draft text. No labels, no explanations, no surrounding quotes.`,
     text
   )
 }

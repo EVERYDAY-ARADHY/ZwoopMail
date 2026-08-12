@@ -44,7 +44,7 @@ export default function EmailList() {
 
   return (
     <div className="email-list">
-      {/* Stream Header — always visible */}
+      {/* Stream Header — always visible, never scrolls */}
       <div className="email-list-header">
         <div className="email-list-stream-info">
           <span className="email-list-stream-icon">{config?.icon}</span>
@@ -53,11 +53,9 @@ export default function EmailList() {
         </div>
       </div>
 
-      {/* AI Urgent Attention — sticky, never scrolls */}
-      <NeedsAttention />
-
-      {/* Scrollable Email Items */}
+      {/* Scrollable area: urgent banner + email items scroll together */}
       <div className="email-list-scroll">
+        <NeedsAttention />
         {displayEmails.length === 0 ? (
           <EmptyState stream={activeStream} />
         ) : (
