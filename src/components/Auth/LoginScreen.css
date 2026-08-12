@@ -1,5 +1,6 @@
 .login-screen {
   height: 100%;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -43,10 +44,12 @@
   z-index: 10;
   display: flex;
   flex-direction: column;
-  align-items: flex-end; /* Flush right alignment */
+  align-items: flex-end;
   text-align: right;
   padding: var(--space-8) 0;
   max-width: 860px;
+  width: 100%;
+  overflow: hidden;
   margin-left: auto;
   margin-right: clamp(12px, 4vw, 65px);
 }
@@ -63,7 +66,8 @@
   text-align: right;
   text-shadow: 0 0 10px rgba(252, 80, 0, 0.15);
   max-width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
+  display: block;
 }
 
 /* Title */
