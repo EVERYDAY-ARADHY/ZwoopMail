@@ -67,17 +67,35 @@ export default function AIChatModal({ isOpen, onClose }) {
   const handleAgenticDraftReply = async (email, userContext) => {
     setContextFor(null)
     setContextText('')
-    setDraftingReplyFor(email.id)
 
+    // 1. Switch to chat tab so user sees the action happening
+    setActiveTab('chat')
+
+    // 2. Build the human-readable query shown in chat
+    const contextSuffix = userContext?.trim() ? ` Preferences: "${userContext.trim()}"` : ''
+    const displayQuery = `Draft a reply to "${email.subject}" from ${email.senderName}.${contextSuffix}`
+
+    // 3. Build the actual AI prompt (full detail, not shown in chat)
     const contextClause = userContext?.trim()
       ? `\n\nUser's preferences / context for this reply:\n"${userContext.trim()}"`
       : ''
+    const aiPrompt = `Draft a professional reply to this email from ${email.senderName}. Subject: "${email.subject}".${contextClause}\n\nReturn ONLY the reply body text — no greetings unless specified, no labels, no extra commentary.`
 
-    const prompt = `Draft a professional reply to this email from ${email.senderName}. Subject: "${email.subject}".${contextClause}\n\nReturn ONLY the reply body text — no greetings unless specified, no labels, no extra commentary.`
+    // 4. Add the user message + a pending assistant message to chat
+    const userMsgId = `draft-user-${Date.now()}`
+    const assistantMsgId = `draft-ai-${Date.now() + 1}`
+    setMessages(prev => [
+      ...prev,
+      { id: userMsgId,     sender: 'user',      text: displayQuery },
+      { id: assistantMsgId, sender: 'assistant', text: '', isDraftPending: true },
+    ])
+    setDraftingReplyFor(email.id)
+
+    // 5. Stream the reply body silently — never displayed in the chat bubble
     let draftBody = ''
     try {
       await streamChatWithAI(
-        [{ sender: 'user', text: prompt }],
+        [{ sender: 'user', text: aiPrompt }],
         [email],
         (chunk) => { draftBody += chunk }
       )
@@ -87,12 +105,34 @@ export default function AIChatModal({ isOpen, onClose }) {
     } finally {
       setDraftingReplyFor(null)
     }
-    onClose()
-    toggleCompose({
-      to: email.senderEmail || '',
-      subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
-      body: draftBody,
+
+    // 6. Update assistant bubble to a confirmation message (no raw reply shown)
+    setMessages(prev => {
+      const next = [...prev]
+      const idx = next.findIndex(m => m.id === assistantMsgId)
+      if (idx !== -1) {
+        next[idx] = {
+          ...next[idx],
+          text: draftBody
+            ? `✓ Reply drafted for "${email.subject}" — opening compose now…`
+            : '⚠ Drafting failed. Please try again from the Inbox Analysis tab.',
+          isDraftPending: false,
+        }
+      }
+      return next
     })
+
+    // 7. Brief pause so user sees the confirmation, then open Compose
+    if (draftBody) {
+      setTimeout(() => {
+        onClose()
+        toggleCompose({
+          to: email.senderEmail || '',
+          subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
+          body: draftBody,
+        })
+      }, 900)
+    }
   }
 
   const handleSendMessage = async (e, text = inputMessage) => {
@@ -429,6 +469,11 @@ export default function AIChatModal({ isOpen, onClose }) {
                       {msg.isError ? (
                         <div className="ai-error-badge">
                           <span>⚠</span> AI unavailable — check browser console for details
+                        </div>
+                      ) : msg.isDraftPending ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+                          <span style={{ display: 'inline-block', animation: 'ai-spin 0.8s linear infinite', color: 'var(--color-ember)' }}>✦</span>
+                          Drafting your reply silently…
                         </div>
                       ) : (
                         <div className="ai-markdown-content" style={{ whiteSpace: 'pre-wrap' }}>
