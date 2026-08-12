@@ -13,6 +13,8 @@ export default function AIChatModal({ isOpen, onClose }) {
   const [hasAnalyzed, setHasAnalyzed] = useState(false)
   const [analysisError, setAnalysisError] = useState(null)
   const [draftingReplyFor, setDraftingReplyFor] = useState(null) // emailId currently being AI-drafted
+  const [contextFor, setContextFor] = useState(null)             // emailId whose context panel is open
+  const [contextText, setContextText] = useState('')             // user's preference/context input
 
   // Chat State
   const [messages, setMessages] = useState([])
@@ -62,9 +64,16 @@ export default function AIChatModal({ isOpen, onClose }) {
   }
 
   // ── AI Agentic Draft Reply (triggered from Analysis cards) ─────────────────
-  const handleAgenticDraftReply = async (email) => {
+  const handleAgenticDraftReply = async (email, userContext) => {
+    setContextFor(null)
+    setContextText('')
     setDraftingReplyFor(email.id)
-    const prompt = `Draft a professional reply to this email from ${email.senderName}. Subject: "${email.subject}". Return ONLY the reply body text with no extra commentary.`
+
+    const contextClause = userContext?.trim()
+      ? `\n\nUser's preferences / context for this reply:\n"${userContext.trim()}"`
+      : ''
+
+    const prompt = `Draft a professional reply to this email from ${email.senderName}. Subject: "${email.subject}".${contextClause}\n\nReturn ONLY the reply body text — no greetings unless specified, no labels, no extra commentary.`
     let draftBody = ''
     try {
       await streamChatWithAI(
@@ -296,25 +305,61 @@ export default function AIChatModal({ isOpen, onClose }) {
                         </div>
                       )}
                       
-                      <div className="card-footer-btns">
-                        <button
-                          className="card-btn primary"
-                          onClick={() => handleAgenticDraftReply(email)}
-                          disabled={!!draftingReplyFor}
-                          style={{ minWidth: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                        >
-                          {draftingReplyFor === email.id ? (
-                            <>
-                              <span style={{ display: 'inline-block', animation: 'ai-spin 0.8s linear infinite' }}>✦</span>
-                              Drafting...
-                            </>
-                          ) : '✦ AI Draft Reply'}
-                        </button>
-                        <button className="card-btn secondary" onClick={() => {
-                          onClose()
-                          selectEmail(email)
-                        }}>View Mail</button>
-                      </div>
+                      {/* Context panel — expands when user clicks AI Draft Reply */}
+                      {contextFor === email.id ? (
+                        <div className="draft-context-panel">
+                          <label className="draft-context-label font-mono">
+                            <span style={{ color: 'var(--color-ember)' }}>✦</span> What should the reply say? (optional)
+                          </label>
+                          <textarea
+                            className="draft-context-input"
+                            placeholder={'e.g. "Tell them I\'ll follow up next week. Keep it short and friendly."'}
+                            value={contextText}
+                            onChange={e => setContextText(e.target.value)}
+                            rows={3}
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                handleAgenticDraftReply(email, contextText)
+                              }
+                            }}
+                          />
+                          <div className="draft-context-actions">
+                            <button
+                              className="card-btn secondary"
+                              onClick={() => { setContextFor(null); setContextText('') }}
+                            >Cancel</button>
+                            <button
+                              className="card-btn primary"
+                              onClick={() => handleAgenticDraftReply(email, contextText)}
+                              disabled={!!draftingReplyFor}
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              {draftingReplyFor === email.id ? (
+                                <><span style={{ display: 'inline-block', animation: 'ai-spin 0.8s linear infinite' }}>✦</span> Drafting...</>
+                              ) : '✦ Generate Draft'}
+                            </button>
+                          </div>
+                          <span className="draft-context-hint font-mono">⌘↵ to generate</span>
+                        </div>
+                      ) : (
+                        <div className="card-footer-btns">
+                          <button
+                            className="card-btn primary"
+                            onClick={() => { setContextFor(email.id); setContextText('') }}
+                            disabled={!!draftingReplyFor}
+                            style={{ minWidth: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                          >
+                            {draftingReplyFor === email.id ? (
+                              <><span style={{ display: 'inline-block', animation: 'ai-spin 0.8s linear infinite' }}>✦</span> Drafting...</>
+                            ) : '✦ AI Draft Reply'}
+                          </button>
+                          <button className="card-btn secondary" onClick={() => {
+                            onClose()
+                            selectEmail(email)
+                          }}>View Mail</button>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
