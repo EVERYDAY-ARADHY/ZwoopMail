@@ -24,3 +24,10 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Media / Posters / Videos (keep these local, not in repo)
+*.mp3
+*.mp4
+*.mov
+ZWOOP*.png
+ZWOOP*.jpg
