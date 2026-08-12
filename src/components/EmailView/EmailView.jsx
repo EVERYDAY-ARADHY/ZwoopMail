@@ -71,9 +71,9 @@ function EmailMessageStep({ message, user }) {
           )}
         </div>
       </div>
-      <div style={{ 
-        fontSize: '0.75em', 
-        color: 'var(--color-text-tertiary)', 
+      <div style={{
+        fontSize: '0.75em',
+        color: 'var(--color-text-tertiary)',
         marginTop: '4px',
         padding: isMe ? '0 8px 0 0' : '0 0 0 36px'
       }}>
@@ -137,7 +137,7 @@ export default function EmailView() {
         // Replace references in HTML (cid: or filename) with Base64 Data URI
         if (att.data && att.mimeType) {
           const dataUrl = `data:${att.mimeType};base64,${att.data}`
-          
+
           if (att.cid) {
             const escapedCid = att.cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
             const cidRegex = new RegExp(`src=["']cid:${escapedCid}["']`, 'gi')
@@ -319,9 +319,9 @@ export default function EmailView() {
                   )}
                 </div>
               </div>
-              <div style={{ 
-                fontSize: '0.75em', 
-                color: 'var(--color-text-tertiary)', 
+              <div style={{
+                fontSize: '0.75em',
+                color: 'var(--color-text-tertiary)',
                 marginTop: '4px',
                 padding: isLatestMe ? '0 8px 0 0' : '0 0 0 36px'
               }}>

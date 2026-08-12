@@ -375,11 +375,11 @@ export async function detectUrgent(emails) {
 export async function composeAssist(text, action) {
   const actions = {
     professional: 'Rewrite the following draft in a professional, formal business tone.',
-    casual:       'Rewrite the following draft in a relaxed, casual conversational tone.',
-    shorter:      'Make the following draft significantly shorter while keeping the core message.',
-    fix_grammar:  'Fix all grammar, spelling, and punctuation errors in the following draft. Change nothing else.',
-    friendly:     'Rewrite the following draft in a warm, friendly, approachable tone.',
-    urgent:       'Rewrite the following draft to clearly convey urgency and importance.',
+    casual: 'Rewrite the following draft in a relaxed, casual conversational tone.',
+    shorter: 'Make the following draft significantly shorter while keeping the core message.',
+    fix_grammar: 'Fix all grammar, spelling, and punctuation errors in the following draft. Change nothing else.',
+    friendly: 'Rewrite the following draft in a warm, friendly, approachable tone.',
+    urgent: 'Rewrite the following draft to clearly convey urgency and importance.',
   }
   const instruction = actions[action] || actions.professional
   return aiComplete(
