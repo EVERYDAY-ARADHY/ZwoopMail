@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMail } from '../../context/MailContext'
-import { analyzeTodaysEmails, streamChatWithAI, retrieveRelevantEmailIds } from '../../api/ai'
+import { analyzeTodaysEmails, streamChatWithAI, streamDraftReply, retrieveRelevantEmailIds } from '../../api/ai'
 import './AIChatModal.css'
 
 export default function AIChatModal({ isOpen, onClose }) {
   const { emails, user, toggleCompose, selectEmail } = useMail()
   const [activeTab, setActiveTab] = useState('summary') // 'summary' | 'chat'
-  
+
   // Summary State
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [emailAnalysis, setEmailAnalysis] = useState([])
@@ -30,7 +30,7 @@ export default function AIChatModal({ isOpen, onClose }) {
     if (isOpen && activeTab === 'summary' && !hasAnalyzed && emailCount > 0) {
       handleAnalyze()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, activeTab, hasAnalyzed, emailCount])
 
   // Scroll to bottom of chat
@@ -75,31 +75,22 @@ export default function AIChatModal({ isOpen, onClose }) {
     const contextSuffix = userContext?.trim() ? ` Preferences: "${userContext.trim()}"` : ''
     const displayQuery = `Draft a reply to "${email.subject}" from ${email.senderName}.${contextSuffix}`
 
-    // 3. Build the actual AI prompt (full detail, not shown in chat)
-    const contextClause = userContext?.trim()
-      ? `\n\nUser's preferences / context for this reply:\n"${userContext.trim()}"`
-      : ''
-    const aiPrompt = `Draft a professional reply to this email from ${email.senderName}. Subject: "${email.subject}".${contextClause}\n\nReturn ONLY the reply body text — no greetings unless specified, no labels, no extra commentary.`
-
     // 4. Add the user message + a pending assistant message to chat
     const userMsgId = `draft-user-${Date.now()}`
     const assistantMsgId = `draft-ai-${Date.now() + 1}`
     setMessages(prev => [
       ...prev,
-      { id: userMsgId,     sender: 'user',      text: displayQuery },
+      { id: userMsgId, sender: 'user', text: displayQuery },
       { id: assistantMsgId, sender: 'assistant', text: '', isDraftPending: true },
     ])
     setDraftingReplyFor(email.id)
 
-    // 5. Stream the reply body silently — never displayed in the chat bubble
+    // 5. Stream the reply body silently using the dedicated draft function
+    //    (streamDraftReply has no agent-tag system prompt so the output is clean body text)
     let draftBody = ''
     try {
-      await streamChatWithAI(
-        [{ sender: 'user', text: aiPrompt }],
-        [email],
-        (chunk) => { draftBody += chunk }
-      )
-      draftBody = draftBody.replace(/<agent>[\s\S]*?<\/agent>/gi, '').trim()
+      await streamDraftReply(email, userContext, (chunk) => { draftBody += chunk })
+      draftBody = draftBody.trim()
     } catch (err) {
       console.error('[ZwoopAI] Agentic draft failed:', err)
     } finally {
@@ -114,9 +105,10 @@ export default function AIChatModal({ isOpen, onClose }) {
         next[idx] = {
           ...next[idx],
           text: draftBody
-            ? `✓ Reply drafted for "${email.subject}" — opening compose now…`
+            ? `<div class="ai-compose-transition"><span class="ai-sparkle-burst">✦</span> Reply drafted for "${email.subject}" — opening compose...</div>`
             : '⚠ Drafting failed. Please try again from the Inbox Analysis tab.',
           isDraftPending: false,
+          isHtml: !!draftBody // Flag to render as HTML
         }
       }
       return next
@@ -152,7 +144,7 @@ export default function AIChatModal({ isOpen, onClose }) {
       // Step 1: Tell user we are searching
       const searchingMsgId = Date.now().toString() + '_search'
       setMessages(prev => [...prev, { id: searchingMsgId, sender: 'assistant', text: 'Searching through last 30 emails...', isSearch: true }])
-      
+
       try {
         const targetCount = Math.min(30, emails.length)
         const lightWeightEmails = emails.slice(0, targetCount).map(e => ({
@@ -161,7 +153,7 @@ export default function AIChatModal({ isOpen, onClose }) {
           sender: e.senderName,
           date: e.date
         }))
-        
+
         const relevantIds = await retrieveRelevantEmailIds(text.trim(), lightWeightEmails)
         if (relevantIds && relevantIds.length > 0) {
           relevantEmails = emails.filter(e => relevantIds.includes(e.id))
@@ -170,7 +162,7 @@ export default function AIChatModal({ isOpen, onClose }) {
       } catch (err) {
         console.error("Deep search retrieval failed:", err)
       }
-      
+
       // Remove searching message
       setMessages(prev => prev.filter(m => m.id !== searchingMsgId))
     }
@@ -287,13 +279,13 @@ export default function AIChatModal({ isOpen, onClose }) {
             <span className="ai-model-badge font-mono">phi-mini</span>
           </div>
           <div className="ai-modal-tabs font-mono">
-            <button 
+            <button
               className={`ai-tab-btn ${activeTab === 'summary' ? 'active' : ''}`}
               onClick={() => setActiveTab('summary')}
             >
               Inbox Analysis
             </button>
-            <button 
+            <button
               className={`ai-tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
               onClick={() => setActiveTab('chat')}
             >
@@ -326,7 +318,7 @@ export default function AIChatModal({ isOpen, onClose }) {
                 {emailAnalysis.map((analysis, index) => {
                   const email = emails.find(e => e.id === analysis.id)
                   if (!email) return null
-                  
+
                   return (
                     <div key={analysis.id || index} className="ai-priority-card">
                       <div className="card-header">
@@ -337,14 +329,14 @@ export default function AIChatModal({ isOpen, onClose }) {
                       </div>
                       <h4 className="card-subject">{email.subject}</h4>
                       <p className="card-summary">{analysis.summary}</p>
-                      
+
                       {analysis.actionItem && analysis.actionItem.toLowerCase() !== "no action needed" && (
                         <div className="card-action-hint">
                           <span className="hint-label">Action:</span>
                           <span>{analysis.actionItem}</span>
                         </div>
                       )}
-                      
+
                       {/* Context panel — expands when user clicks AI Draft Reply */}
                       {contextFor === email.id ? (
                         <div className="draft-context-panel">
@@ -440,8 +432,8 @@ export default function AIChatModal({ isOpen, onClose }) {
             <div className="ai-quick-prompts">
               <span className="prompts-label">Quick actions:</span>
               {quickPrompts.map((prompt, i) => (
-                <button 
-                  key={i} 
+                <button
+                  key={i}
                   className="prompt-pill"
                   onClick={() => handleSendMessage(null, prompt)}
                   disabled={isChatLoading}
@@ -458,7 +450,7 @@ export default function AIChatModal({ isOpen, onClose }) {
                   <p>Hi {user?.name?.split(' ')[0] || 'there'}! I can help you search, summarize, or draft emails.</p>
                 </div>
               )}
-              
+
               {messages.map((msg) => (
                 <div key={msg.id} className={`ai-message-row ${msg.sender}`}>
                   {msg.sender === 'assistant' && (
@@ -496,8 +488,8 @@ export default function AIChatModal({ isOpen, onClose }) {
                       <div className="ai-message-sources" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <span style={{ fontSize: '11px', color: 'var(--color-text-subtle, #666)', fontWeight: 600 }}>Sources:</span>
                         {msg.sources.map(src => (
-                          <div 
-                            key={src.id} 
+                          <div
+                            key={src.id}
                             className="ai-source-pill"
                             onClick={() => {
                               selectEmail(src.email)
@@ -545,7 +537,7 @@ export default function AIChatModal({ isOpen, onClose }) {
                   onChange={e => setInputMessage(e.target.value)}
                   disabled={isChatLoading}
                 />
-                <div 
+                <div
                   className={`ai-deep-search-badge ${useDeepSearch ? 'active' : ''}`}
                   onClick={() => !isChatLoading && setUseDeepSearch(!useDeepSearch)}
                   title="Search last 30 emails before answering or drafting"

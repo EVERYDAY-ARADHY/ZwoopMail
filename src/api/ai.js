@@ -30,14 +30,32 @@ function setCache(key, value) {
 }
 
 // ─── Retry Helper ────────────────────────────────────────────────────────────
-async function fetchWithRetry(url, options, maxRetries = 2) {
+async function fetchWithRetry(url, options, maxRetries = 3) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const res = await fetch(url, options)
-    if (res.status === 429 && attempt < maxRetries) {
-      // Azure often sends long Retry-After headers (e.g. 60s).
-      // Cap our wait to 4 seconds max to avoid freezing UI.
-      const waitMs = Math.min(2000 * (attempt + 1), 4000)
-      console.warn(`[ZwoopAI] Rate limited. Retrying in ${waitMs / 1000}s (attempt ${attempt + 1}/${maxRetries})`)
+    // Add a 25s abort timeout per attempt so hung requests never freeze the UI
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 25000)
+
+    let res
+    try {
+      res = await fetch(url, { ...options, signal: controller.signal })
+    } catch (err) {
+      clearTimeout(timeoutId)
+      // Network-level errors (TypeError: Failed to fetch, AbortError from timeout)
+      if (attempt < maxRetries) {
+        const waitMs = 800 * (attempt + 1)
+        console.warn(`[ZwoopAI] Network error on attempt ${attempt + 1}: ${err.message}. Retrying in ${waitMs}ms…`)
+        await new Promise(r => setTimeout(r, waitMs))
+        continue
+      }
+      throw new Error(`Network error after ${maxRetries + 1} attempts: ${err.message}`)
+    }
+    clearTimeout(timeoutId)
+
+    // Retry on rate-limit (429) or server errors (5xx)
+    if ((res.status === 429 || res.status >= 500) && attempt < maxRetries) {
+      const waitMs = Math.min(1500 * (attempt + 1), 4000)
+      console.warn(`[ZwoopAI] HTTP ${res.status}. Retrying in ${waitMs / 1000}s (attempt ${attempt + 1}/${maxRetries})`)
       await new Promise(r => setTimeout(r, waitMs))
       continue
     }
@@ -58,14 +76,14 @@ function enqueueTask(taskFn) {
       } catch (err) {
         reject(err)
       }
-      // Cooldown between requests to respect TPM limits
-      await new Promise(r => setTimeout(r, 1000))
+      // Reduced from 1000ms → 350ms: respects TPM limits while feeling ~2× faster
+      await new Promise(r => setTimeout(r, 350))
     })
   })
 }
 
 // ─── Core Completion (with Cache) ────────────────────────────────────────────
-async function aiComplete(systemPrompt, userMessage, { useCache = true } = {}) {
+async function aiComplete(systemPrompt, userMessage, { useCache = true, maxTokens = 512 } = {}) {
   const cacheKey = getCacheKey(systemPrompt, userMessage)
 
   if (useCache) {
@@ -86,7 +104,7 @@ async function aiComplete(systemPrompt, userMessage, { useCache = true } = {}) {
           { role: 'user', content: userMessage },
         ],
         temperature: 0.3,
-        max_tokens: 512,
+        max_tokens: maxTokens,
       }),
     })
 
@@ -202,7 +220,6 @@ NEVER put the draft text outside the tag. NEVER skip the tag when drafting.`
   const res = await fetchWithRetry(PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    // Raised to 1024 so agent tags are never truncated mid-stream
     body: JSON.stringify({ messages, temperature: 0.4, max_tokens: 1024, stream: true }),
   })
 
@@ -211,20 +228,116 @@ NEVER put the draft text outside the tag. NEVER skip the tag when drafting.`
     throw new Error(`Phi-mini stream error (${res.status}): ${errorText}`)
   }
 
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder('utf-8')
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    const chunk = decoder.decode(value, { stream: true })
-    for (const line of chunk.split('\n')) {
-      if (!line.startsWith('data: ') || line.trim() === 'data: [DONE]') continue
-      try {
-        const data = JSON.parse(line.slice(6))
-        if (data.choices?.[0]?.delta?.content) onChunk(data.choices[0].delta.content)
-      } catch { /* partial SSE chunk — safe to ignore */ }
+  // ── Streaming path (Chrome / Firefox / Edge) ──────────────────────────────
+  if (res.body && typeof res.body.getReader === 'function') {
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value, { stream: true })
+      for (const line of chunk.split('\n')) {
+        if (!line.startsWith('data: ') || line.trim() === 'data: [DONE]') continue
+        try {
+          const data = JSON.parse(line.slice(6))
+          if (data.choices?.[0]?.delta?.content) onChunk(data.choices[0].delta.content)
+        } catch { /* partial SSE chunk — safe to ignore */ }
+      }
     }
+    return
   }
+
+  // ── Non-streaming fallback (Safari on macOS / older environments) ──────────
+  // Re-request without stream:true so we get a normal JSON response
+  console.warn('[ZwoopAI] ReadableStream not supported — falling back to non-streaming fetch')
+  const fallbackRes = await fetchWithRetry(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, temperature: 0.4, max_tokens: 1024, stream: false }),
+  })
+  if (!fallbackRes.ok) {
+    const errorText = await fallbackRes.text()
+    throw new Error(`Phi-mini fallback error (${fallbackRes.status}): ${errorText}`)
+  }
+  const fallbackData = await fallbackRes.json()
+  const fullText = fallbackData.choices?.[0]?.message?.content || ''
+  // Deliver as a single chunk so callers work identically
+  if (fullText) onChunk(fullText)
+}
+
+// ─── Draft Reply Streamer (no agent tags — for AI Draft Reply flow) ───────────
+// Intentionally separate from streamChatWithAI so the model receives a plain
+// writing prompt with no "use <agent> tags" instructions that would fight the
+// user request and produce empty or tag-wrapped output.
+export async function streamDraftReply(email, userContext, onChunk) {
+  const emailPreview = cleanEmailThread(email.bodyText || email.snippet || '').slice(0, 600)
+
+  const contextLine = userContext?.trim()
+    ? `\nUser's instructions for this reply: ${userContext.trim()}`
+    : ''
+
+  const systemPrompt = `You are an expert email writer. Write a reply to the email below.${contextLine}
+RULES:
+- Return ONLY the reply body text. No subject, no labels, no tags, no explanations.
+- Do not wrap in quotes or code blocks.
+- Match the tone and formality of the original email unless instructed otherwise.`
+
+  const userMessage = `From: ${email.senderName}
+Subject: ${email.subject}
+---
+${emailPreview}
+---
+Write the reply body now.`
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user',   content: userMessage },
+  ]
+
+  const res = await fetchWithRetry(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, temperature: 0.45, max_tokens: 800, stream: true }),
+  })
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    throw new Error(`Draft reply stream error (${res.status}): ${errorText}`)
+  }
+
+  // Streaming path (Chrome / Firefox / Edge)
+  if (res.body && typeof res.body.getReader === 'function') {
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value, { stream: true })
+      for (const line of chunk.split('\n')) {
+        if (!line.startsWith('data: ') || line.trim() === 'data: [DONE]') continue
+        try {
+          const data = JSON.parse(line.slice(6))
+          if (data.choices?.[0]?.delta?.content) onChunk(data.choices[0].delta.content)
+        } catch { /* partial SSE chunk — safe to ignore */ }
+      }
+    }
+    return
+  }
+
+  // Non-streaming fallback (Safari / macOS)
+  console.warn('[ZwoopAI] streamDraftReply: ReadableStream not supported — using fallback')
+  const fallbackRes = await fetchWithRetry(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, temperature: 0.45, max_tokens: 800, stream: false }),
+  })
+  if (!fallbackRes.ok) {
+    const errorText = await fallbackRes.text()
+    throw new Error(`Draft reply fallback error (${fallbackRes.status}): ${errorText}`)
+  }
+  const fallbackData = await fallbackRes.json()
+  const body = fallbackData.choices?.[0]?.message?.content || ''
+  if (body) onChunk(body)
 }
 
 // ─── Email Categorization ────────────────────────────────────────────────────
@@ -292,15 +405,16 @@ export async function analyzeTodaysEmails(emails) {
   const now = Date.now()
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
 
-  // Try last 7 days first; fall back to the most recent 10 emails if window is empty
+  // Try last 7 days first; fall back to most recent emails if window is empty
   let targetEmails = emails.filter(e => e.date && (now - new Date(e.date).getTime()) < sevenDaysMs)
   if (targetEmails.length === 0) {
-    console.info('[ZwoopAI] No emails in last 7 days — using most recent 10 as fallback')
-    targetEmails = emails.slice(0, 10)
+    console.info('[ZwoopAI] No emails in last 7 days — using most recent as fallback')
+    targetEmails = emails.slice(0, 7)
   }
-  targetEmails = targetEmails.slice(0, 10)
+  // Cap at 7 (was 10): fewer emails = faster response + smaller chance of truncated JSON
+  targetEmails = targetEmails.slice(0, 7)
 
-  // Use email IDs as a cache fingerprint — skip the AI call if we already analyzed this exact set
+  // Skip API if we already have results for this exact email set
   const fingerprint = `analyze||${targetEmails.map(e => e.id).join(',')}`
   const cached = getCached(fingerprint)
   if (cached !== null) {
@@ -308,29 +422,31 @@ export async function analyzeTodaysEmails(emails) {
     return cached
   }
 
+  // Compact summary: 100 char preview is enough for triage
   const summaries = targetEmails.map(e =>
-    `ID:${e.id} | From:${e.senderName} | Subject:${e.subject} | Preview:${(e.snippet || '').slice(0, 120)}`
+    `ID:${e.id} | From:${e.senderName} | Subj:${e.subject} | ${(e.snippet || '').slice(0, 100)}`
   ).join('\n')
 
-  const systemPrompt = `You are an email triage assistant. Analyze the provided emails and return a JSON array.
-
-STRICT RULES:
-- Output ONLY a raw JSON array — no markdown, no code fences, no explanation.
-- Each item must have exactly these fields:
-  {"id":"<exact id from input>","urgency":"high"|"medium"|"low","summary":"one concise sentence","actionItem":"specific next action, or null"}
-- Urgency guide: "high" = deadlines/payments/urgent requests; "medium" = replies needed soon; "low" = informational only.
-- Use the exact ID string from the input — do not modify it.`
+  const systemPrompt = `Email triage assistant. Analyze these emails. Return a raw JSON array — no markdown, no fences.
+Each item: {"id":"<exact id>","urgency":"high"|"medium"|"low","summary":"one sentence","actionItem":"next action or null"}
+Urgency: high=deadlines/payments/urgent; medium=reply needed; low=info only.
+Copy the id string exactly as given.`
 
   try {
-    const response = await aiComplete(systemPrompt, summaries, { useCache: false })
+    const response = await aiComplete(systemPrompt, summaries, { useCache: false, maxTokens: 900 })
     const parsed = parseJsonResponse(response)
     const result = Array.isArray(parsed) ? parsed : []
-    // Cache successful results keyed by email fingerprint
     if (result.length > 0) setCache(fingerprint, result)
     return result
   } catch (err) {
     console.error('[ZwoopAI] analyzeTodaysEmails failed:', err)
-    return []
+    // Graceful degradation: return stub cards so UI never goes empty
+    return targetEmails.map(e => ({
+      id: e.id,
+      urgency: 'medium',
+      summary: e.snippet ? e.snippet.slice(0, 80) + '…' : 'No preview available.',
+      actionItem: null,
+    }))
   }
 }
 
